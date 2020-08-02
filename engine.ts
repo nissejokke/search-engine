@@ -24,43 +24,26 @@ export class Engine {
             const lowerWord = word.toLowerCase();
             this.index[lowerWord] = this.index[lowerWord] || [];
             this.index[lowerWord].push({ url, index });
-
-            // "botanik": [{ index: 0 }, { index: 10 }]
-            // "de": [{ index: 11 }]
-            // site:http://wikipedia/växt
-            // index:de:11
         });
     }
 
     search(text: string): SearchResult[] {
         const words = this.toWords(text).map(word => word.toLowerCase());
-        const searchWordsResult: SearchWordExtended[] = [];
-        let i = 0;
-        words.forEach((word, index, arr) => {
-            if (index === 0) {
-                const resultWords = this.index[word];
-                if (!resultWords || resultWords.length === 0) return;
-                const results: SearchWordExtended[] = resultWords.map(resultWord => {
-                    return { word, ...resultWord };
-                });
-            }
-            else {
-
-            }
-        });
-
         const usedUrls = {};
-        searchWordsResult.map(searchWords => {
-            return searchWords.map(result => {
+        const searchWords: SearchWordExtended[][] = words.map((word, index) => {
+            const resultWords = this.index[word];
+            if (!resultWords || resultWords.length === 0) return;
+            const results = resultWords.map(resultWord => {
+                return { word, ...resultWord } as SearchWordExtended;
+            });
+            return results.map(result => {
                 if (usedUrls[result.url]) return;
                 usedUrls[result.url] = true;
                 return result;
-            });
-        }).filter(result => Boolean(result));
-
-        return searchWordsResult[0].map(word => {
-            return { url: word.url, ingress: word.word };
+            }).filter(result => Boolean(result));
         });
+
+        return searchWords[0].map(word => ({ url: word.url, ingress: word.word }));
     }
 
     private toWords (text: string): string[] {
