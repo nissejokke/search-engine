@@ -5,6 +5,10 @@ export interface SearchResult {
 
 export interface Site {
   url: string;
+  /**
+   * Word index for site
+   */
+  index: Record<string, number[]>;
 }
 
 export class Engine {
@@ -26,6 +30,7 @@ export class Engine {
       this.urlToSite[url] = this.seed;
       this.site[this.seed] = {
         url,
+        index: {},
       };
       this.index[siteKey] = [];
     }
@@ -36,6 +41,10 @@ export class Engine {
       if (!this.index[wordKey]) this.index[wordKey] = [];
       this.index[wordKey].push(this.seed);
       this.index[siteKey].push(this.seed);
+
+      const siteIndex = this.site[this.seed].index;
+      if (!siteIndex[wordKey]) siteIndex[wordKey] = [];
+      siteIndex[wordKey].push(index);
     });
 
     this.seed += 1;
@@ -50,12 +59,43 @@ export class Engine {
       .filter((arr) => arr.length > 0);
 
     const result = this.intersectMax(arrs, 5);
-    return this.uniqueArr(result).map((site) => {
+    return this.uniqueArr(result).map((siteId) => {
+      const site = this.site[siteId];
       return {
-        ingress: "",
-        url: this.site[site].url,
+        ingress: this.constructIngress(words, site.index), // site.index[words[0]],
+        url: site.url,
       };
     });
+  }
+
+  private constructIngress(
+    words: string[],
+    index: Record<string, number[]>
+  ): string {
+    const getWordFromIndex = (wordIndex: number): string | null => {
+      const keys = Object.keys(index);
+      for (let k = 0; k < keys.length; k++) {
+        if (index[keys[k]].indexOf(wordIndex) > -1) return keys[k];
+      }
+      return null;
+    };
+    return words
+      .reduce((ingParts: string[], word) => {
+        const indicesForWord = index[word];
+        if (!indicesForWord) return [];
+        const wordParts = indicesForWord.reduce((parts: string[], i) => {
+          if (parts.length) parts.push('...');
+          const startWord = getWordFromIndex(i - 1);
+          if (startWord) parts.push(startWord);
+          parts.push(word);
+          const endWord = getWordFromIndex(i + 1);
+          if (endWord) parts.push(endWord);
+          return parts;
+        }, []);
+        ingParts.push(wordParts.join(' '));
+        return ingParts;
+      }, [])
+      .join(' ');
   }
 
   private uniqueArr(arr: number[]): number[] {
@@ -102,6 +142,6 @@ export class Engine {
   }
 
   private toWords(text: string): string[] {
-    return text.split(/\s/g).map((word) => word.replace(/[^\w\dåäö]/g, ""));
+    return text.split(/\s/g).map((word) => word.replace(/[^\w\dåäö]/g, ''));
   }
 }
