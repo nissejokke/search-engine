@@ -5,62 +5,60 @@ describe('Search', () => {
   beforeEach(() => {
     /*
             urlToSite: {
-                "/botanik": 1
+                "/jupiter": 1
             }
 
             site = {
                 1: {
-                    url: "/botanik",
-                    text: "Botanik (av grekiska βοτανική, "som rör örter";[1] även fytologi, "läran om växter") är det område inom biologin som studerar växtriket. Botanik omfattar tillväxt, reproduktion, ämnesomsättning, utveckling, sjukdomar, ekologi och evolution av växter.",
+                    url: "/jupiter",
                     index: {
-                        "Botanik": [1,100],
-                        "grekiska": [3],
+                        "Jupiter": [1,100],
+                        "god": [3],
                     }
                 },
                 2000: {
-                    url: "/växt",
-                    text: "Växtriket (Plantae) är ett av de riken vilka ingår i den biologiska systematiken. Studiet av växtriket kallas botanik. De gröna växterna indelas i divisioner.",
+                    url: "/saturn",
                 },
             }
 
             index = {
-                "botanik": [1,..2000],
-                "växt": [50.., 2000],
-                "site:/botanik": [1,4,6,7,8,9,..,200]
+                "planet": [1,..2000],
+                "god": [50.., 2000],
+                "site:/saturn": [1,4,6,7,8,9,..,200]
             }
         */
     engine = new Engine();
     engine.add({
       text:
-        'Botanik (av grekiska βοτανική, "som rör örter";[1] även fytologi, "läran om växter") är det område inom biologin som studerar växtriket. Botanik omfattar tillväxt, reproduktion, ämnesomsättning, utveckling, sjukdomar, ekologi och evolution av växter.',
-      url: 'https://sv.wikipedia.org/wiki/Botanik',
+        'Jupiter is the fifth planet from the Sun and the largest in the Solar System. It is a gas giant with a mass one-thousandth that of the Sun, but two-and-a-half times that of all the other planets in the Solar System combined. Jupiter is one of the brightest objects visible to the naked eye in the night sky, and has been known to ancient civilizations since before recorded history. It is named after the Roman god Jupiter.[18] When viewed from Earth, Jupiter can be bright enough for its reflected light to cast visible shadows,[19] and is on average the third-brightest natural object in the night sky after the Moon and Venus.',
+      url: 'https://en.wikipedia.org/wiki/Jupiter',
     });
     engine.add({
       text:
-        'Växtriket (Plantae) är ett av de riken vilka ingår i den biologiska systematiken. Studiet av växtriket kallas botanik. De gröna växterna indelas i divisioner.',
-      url: 'https://sv.wikipedia.org/wiki/Växt',
+        'Saturn is the sixth planet from the Sun and the second-largest in the Solar System, after Jupiter. It is a gas giant with an average radius of about nine times that of Earth.[18][19] It only has one-eighth the average density of Earth; however, with its larger volume, Saturn is over 95 times more massive.[20][21][22] Saturn is named after the Roman god of wealth and agriculture; its astronomical symbol (♄) represents the god´s sickle.',
+      url: 'https://en.wikipedia.org/wiki/Saturn',
     });
   });
   test('Single hit', () => {
-    const result = engine.search('växter');
+    const result = engine.search('brightest');
     expect(result).toHaveLength(1);
-    expect(result[0].url).toBe('https://sv.wikipedia.org/wiki/Botanik');
+    expect(result[0].url).toBe('https://en.wikipedia.org/wiki/Jupiter');
   });
   test('Two results', () => {
-    const result = engine.search('botanik');
+    const result = engine.search('giant');
     expect(result).toHaveLength(2);
-    expect(result[0].url).toBe('https://sv.wikipedia.org/wiki/Botanik');
-    expect(result[1].url).toBe('https://sv.wikipedia.org/wiki/Växt');
-    expect(result[0].ingress).toContain('botanik omfattar');
+    expect(result[0].url).toBe('https://en.wikipedia.org/wiki/Jupiter');
+    expect(result[1].url).toBe('https://en.wikipedia.org/wiki/Saturn');
+    expect(result[0].ingress).toContain('gas giant');
   });
   test('Single adjecent words', () => {
-    const result = engine.search('botanik de');
+    const result = engine.search('ancient civilizations');
     expect(result).toHaveLength(1);
-    expect(result[0].url).toBe('https://sv.wikipedia.org/wiki/Växt');
+    expect(result[0].url).toBe('https://en.wikipedia.org/wiki/Jupiter');
   });
   test('Single words', () => {
-    const result = engine.search('botanik biologiska divisioner');
+    const result = engine.search('planet sixth');
     expect(result).toHaveLength(1);
-    expect(result[0].url).toBe('https://sv.wikipedia.org/wiki/Växt');
+    expect(result[0].url).toBe('https://en.wikipedia.org/wiki/Saturn');
   });
 });

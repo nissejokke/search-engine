@@ -15,6 +15,18 @@ engine.add({
   url: 'https://en.wikipedia.org/wiki/Saturn',
 });
 const result = engine.search('jupiter');
+/*
+[
+    {
+        ingress: 'jupiter is ... combined jupiter is ... earth jupiter can',
+        url: 'https://en.wikipedia.org/wiki/Jupiter'
+    },
+    {
+        ingress: 'after jupiter it',
+        url: 'https://en.wikipedia.org/wiki/Saturn'
+    }
+]
+*/
 ```
 
 TODO:
