@@ -79,22 +79,40 @@ export class Engine {
       }
       return null;
     };
-    return words
-      .reduce((ingParts: string[], word) => {
-        const indicesForWord = index[word];
-        if (!indicesForWord) return [];
-        const wordParts = indicesForWord.reduce((parts: string[], i) => {
-          if (parts.length) parts.push('...');
-          const startWord = getWordFromIndex(i - 1);
-          if (startWord) parts.push(startWord);
-          parts.push(word);
-          const endWord = getWordFromIndex(i + 1);
-          if (endWord) parts.push(endWord);
-          return parts;
-        }, []);
-        ingParts.push(wordParts.join(' '));
-        return ingParts;
-      }, [])
+    const pushAtIndex = (parts: string[], ind: number) => {
+      const word = getWordFromIndex(ind);
+      if (word) parts.push(word);
+    };
+    const indices = this.uniqueArr(
+      words
+        .reduce((indices: number[], word) => {
+          const indicesForWord = index[word];
+          if (!indicesForWord) return indices;
+          return indices.concat(indicesForWord);
+        }, [])
+        .sort()
+    );
+
+    return indices
+      .reduce((parts, ind, ingIndex) => {
+        const getIndRelative = (relative: number) =>
+          indices[ingIndex + relative];
+        const isFirstWord = ingIndex === 0 || ind !== getIndRelative(-1) + 1;
+        const isLastWord =
+          ingIndex === indices.length - 1 || ind !== getIndRelative(+1) - 1;
+        if (isFirstWord) pushAtIndex(parts, ind - 2);
+        if (isFirstWord) pushAtIndex(parts, ind - 1);
+        pushAtIndex(parts, ind);
+        if (isLastWord) pushAtIndex(parts, ind + 1);
+        if (isLastWord) pushAtIndex(parts, ind + 2);
+        if (
+          ingIndex < indices.length - 1 &&
+          Math.abs(ind - indices[ingIndex + 1]) > 1 // the two words are not right next to each other
+        )
+          parts.push('...');
+
+        return parts;
+      }, [] as string[])
       .join(' ');
   }
 
@@ -142,6 +160,9 @@ export class Engine {
   }
 
   private toWords(text: string): string[] {
-    return text.split(/\s/g).map((word) => word.replace(/[^\w\dåäö]/g, ''));
+    return text
+      .split(/\s/g)
+      .map((word) => word.replace(/[^\w\dåäö]/g, ''))
+      .filter(Boolean);
   }
 }

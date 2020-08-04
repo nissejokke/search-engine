@@ -33,7 +33,7 @@ TODO:
 
 - [x] Search single word
 - [x] Search multiple words
-- [ ] Search result introduction, in progress
+- [x] Search result introduction
 - [ ] Search quotes
 - [ ] Ranking of results
 - [ ] Crawler

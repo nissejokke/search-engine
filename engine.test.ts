@@ -29,13 +29,25 @@ describe('Search', () => {
         */
     engine = new Engine();
     engine.add({
-      text:
-        'Jupiter is the fifth planet from the Sun and the largest in the Solar System. It is a gas giant with a mass one-thousandth that of the Sun, but two-and-a-half times that of all the other planets in the Solar System combined. Jupiter is one of the brightest objects visible to the naked eye in the night sky, and has been known to ancient civilizations since before recorded history. It is named after the Roman god Jupiter.[18] When viewed from Earth, Jupiter can be bright enough for its reflected light to cast visible shadows,[19] and is on average the third-brightest natural object in the night sky after the Moon and Venus.',
+      text: `Jupiter is the fifth planet from the Sun and the largest in the 
+      Solar System. It is a gas giant with a mass one-thousandth that of the Sun, 
+      but two-and-a-half times that of all the other planets in the Solar System 
+      combined. Jupiter is one of the brightest objects visible to the naked eye 
+      in the night sky, and has been known to ancient civilizations since before 
+      recorded history. It is named after the Roman god Jupiter.[18] When viewed 
+      from Earth, Jupiter can be bright enough for its reflected light to cast 
+      visible shadows,[19] and is on average the third-brightest natural object 
+      in the night sky after the Moon and Venus.`,
       url: 'https://en.wikipedia.org/wiki/Jupiter',
     });
     engine.add({
-      text:
-        'Saturn is the sixth planet from the Sun and the second-largest in the Solar System, after Jupiter. It is a gas giant with an average radius of about nine times that of Earth.[18][19] It only has one-eighth the average density of Earth; however, with its larger volume, Saturn is over 95 times more massive.[20][21][22] Saturn is named after the Roman god of wealth and agriculture; its astronomical symbol (♄) represents the god´s sickle.',
+      text: `Saturn is the sixth planet from the Sun and the second-largest in the 
+        Solar System, after Jupiter. It is a gas giant with an average radius 
+        of about nine times that of Earth.[18][19] It only has one-eighth the 
+        average density of Earth; however, with its larger volume, Saturn is 
+        over 95 times more massive.[20][21][22] Saturn is named after the Roman 
+        god of wealth and agriculture; its astronomical symbol (♄) represents 
+        the god´s sickle.`,
       url: 'https://en.wikipedia.org/wiki/Saturn',
     });
   });
@@ -51,14 +63,22 @@ describe('Search', () => {
     expect(result[1].url).toBe('https://en.wikipedia.org/wiki/Saturn');
     expect(result[0].ingress).toContain('gas giant');
   });
+  test('Multiple hits', () => {
+    const result = engine.search('Solar');
+    expect(result).toHaveLength(2);
+  });
   test('Single adjecent words', () => {
     const result = engine.search('ancient civilizations');
     expect(result).toHaveLength(1);
     expect(result[0].url).toBe('https://en.wikipedia.org/wiki/Jupiter');
+    expect(result[0].ingress).toBe(
+      'known to ancient civilizations since before'
+    );
   });
   test('Single words', () => {
     const result = engine.search('planet sixth');
     expect(result).toHaveLength(1);
     expect(result[0].url).toBe('https://en.wikipedia.org/wiki/Saturn');
+    expect(result[0].ingress).toBe('is the sixth planet from the');
   });
 });
