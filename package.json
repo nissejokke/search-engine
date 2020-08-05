@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest",
+    "bench": "ts-node -O '{\"module\":\"commonjs\"}' bench.ts"
   },
   "author": "",
   "license": "ISC",
@@ -15,7 +16,9 @@
     "prettier": "2.0.5",
     "pretty-quick": "^2.0.1",
     "ts-jest": "^26.1.4",
-    "typescript": "^3.9.7"
+    "ts-node": "^8.10.2",
+    "typescript": "^3.9.7",
+    "xml-stream": "^0.4.5"
   },
   "husky": {
     "hooks": {

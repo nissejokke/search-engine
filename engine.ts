@@ -48,11 +48,28 @@ export class Engine {
    */
   seed: number;
 
+  /**
+   * Stop words - excluded from index
+   */
+  stopWords: Record<string, boolean>;
+
   constructor() {
     this.index = {};
     this.site = {};
     this.urlToSite = {};
     this.seed = 0;
+    this.stopWords = {
+      a: true,
+      and: true,
+      be: true,
+      have: true,
+      i: true,
+      in: true,
+      of: true,
+      that: true,
+      the: true,
+      to: true,
+    };
   }
 
   /**
@@ -61,7 +78,7 @@ export class Engine {
    */
   add({ text, url }: { text: string; url: string }) {
     const siteKey = `site:${url}`;
-    const { words } = this.toWords(text, true);
+    const { words } = this.toWords(text, true, true);
 
     if (!this.urlToSite[url]) {
       this.urlToSite[url] = this.seed;
@@ -73,10 +90,12 @@ export class Engine {
       this.index[siteKey] = [];
     }
 
-    words.forEach((word, index) => {
+    this.removeStopWords(words).forEach((word, index) => {
       const wordKey = word;
 
       if (!this.index[wordKey]) this.index[wordKey] = [];
+      if (!Array.isArray(this.index[wordKey])) return;
+
       if (this.index[wordKey].indexOf(this.seed) === -1)
         this.index[wordKey].push(this.seed);
       this.index[siteKey].push(this.seed);
@@ -84,6 +103,10 @@ export class Engine {
       const siteIndex = this.site[this.seed].index;
       if (!siteIndex[wordKey]) siteIndex[wordKey] = [];
       siteIndex[wordKey].push(index);
+
+      if (!Array.isArray(this.index[wordKey])) {
+        console.error(this.index[wordKey], wordKey, 'is not an array');
+      }
     });
 
     this.seed += 1;
@@ -111,7 +134,7 @@ export class Engine {
     };
 
     // intersect arrays to get all site where all words exist
-    const sitesWithWords = this.intersectMax(arrs, 5, isWordsValidForSite);
+    const sitesWithWords = this.intersect(arrs, 5, isWordsValidForSite);
 
     return this.uniqueArr(sitesWithWords).map((siteId) => {
       const site = this.site[siteId];
@@ -131,7 +154,7 @@ export class Engine {
       wordIndices.map((ind) => ind - i)
     );
 
-    return this.intersectMax(indicesEqualized, 1).length > 0;
+    return this.intersect(indicesEqualized, 1).length > 0;
   }
 
   /**
@@ -196,7 +219,7 @@ export class Engine {
    * @param maxCount
    * @param shouldBeAdded - if defined, will be required to return true to add value to intersection result list
    */
-  private intersectMax(
+  private intersect(
     arrs: number[][],
     maxCount: number,
     shouldBeAdded?: (val: number) => boolean
@@ -207,11 +230,15 @@ export class Engine {
     let indices = new Array(arrs.length).fill(0);
     while (result.length < maxCount) {
       let vals: number[] = [];
+
+      // fill vals with next values
       for (let i = 0; i < arrs.length; i++) {
         const ind = indices[i];
         if (ind >= arrs[i].length) return result;
         vals.push(arrs[i][ind]);
       }
+
+      // if all equal, they intersect
       if (this.isAllEqual(vals)) {
         let add = false;
         if (shouldBeAdded) {
@@ -219,6 +246,8 @@ export class Engine {
         } else add = true;
         if (add) result.push(vals[0]);
       }
+
+      // which arr to increase index
       const minValue = Math.min(...vals);
       const arrIndexWithSmallestValue = vals.indexOf(minValue);
       indices[arrIndexWithSmallestValue] += 1;
@@ -255,14 +284,21 @@ export class Engine {
    */
   private toWords(
     text: string,
-    lowerCase: boolean = false
+    lowerCase: boolean = false,
+    keepStopWords: boolean = false
   ): { words: string[]; quotes: number[] } {
+    const isOkWord = (word: string) =>
+      Boolean(word) &&
+      (keepStopWords ||
+        (!keepStopWords && (word === '"' || !this.isStopWord(word))));
+
     const words = text
-      .replace(/[\[\]\-,.?!]/g, ' ')
+      .replace(/[^\w\dåäö"\s]/g, ' ')
       .replace(/[\"]/g, ' " ')
       .split(/[\s]/g)
       .map((word) => word.replace(/[^\w\dåäö"]/g, ''))
-      .filter(Boolean);
+      .filter((word) => isOkWord(word));
+
     return words.reduce(
       (av, word, index) => {
         if (word === '"') av.quotes.push(index - av.quotes.length);
@@ -271,5 +307,15 @@ export class Engine {
       },
       { words: [] as string[], quotes: [] as number[] }
     );
+  }
+
+  private removeStopWords(words: string[]) {
+    return words.filter((word) => !this.isStopWord(word));
+  }
+
+  private isStopWord(word: string): boolean {
+    // TODO: Fix stop words
+    return false;
+    return this.stopWords[word];
   }
 }

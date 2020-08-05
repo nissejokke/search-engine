@@ -16,6 +16,7 @@
     "isolatedModules": true,
     "newLine": "LF",
     "sourceMap": true,
-    "downlevelIteration": true
+    "downlevelIteration": true,
+    "typeRoots": ["./node_modules/@types", "./@types"]
   }
 }
