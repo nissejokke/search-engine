@@ -77,7 +77,8 @@ export class Engine {
       const wordKey = word;
 
       if (!this.index[wordKey]) this.index[wordKey] = [];
-      this.index[wordKey].push(this.seed);
+      if (this.index[wordKey].indexOf(this.seed) === -1)
+        this.index[wordKey].push(this.seed);
       this.index[siteKey].push(this.seed);
 
       const siteIndex = this.site[this.seed].index;
@@ -96,30 +97,29 @@ export class Engine {
     const { words, quotes } = this.toWords(text, true);
     // arrays of sites where words exist
     const arrs = words
-      .map((word) => {
-        return this.uniqueArr(this.index[word] || []);
-      })
+      .map((word) => this.index[word] || [])
       .filter((arr) => arr.length > 0);
 
+    const isWordsValidForSite = (siteId: number) => {
+      if (quotes.length === 0) return true;
+      const site = this.site[siteId];
+      for (let i = 0; i < quotes.length; i += 2) {
+        const quotedWords = words.slice(quotes[i], quotes[i + 1]);
+        if (this.isAdjecentWords(quotedWords, site)) return true;
+      }
+      return false;
+    };
+
     // intersect arrays to get all site where all words exist
-    const sitesWithWords = this.intersectMax(arrs, 5);
-    return this.uniqueArr(sitesWithWords)
-      .filter((siteId) => {
-        if (quotes.length === 0) return true;
-        const site = this.site[siteId];
-        for (let i = 0; i < quotes.length; i += 2) {
-          const quotedWords = words.slice(quotes[i], quotes[i + 1]);
-          if (this.isAdjecentWords(quotedWords, site)) return true;
-        }
-        return false;
-      })
-      .map((siteId) => {
-        const site = this.site[siteId];
-        return {
-          ingress: this.constructIngress(words, site),
-          url: site.url,
-        };
-      });
+    const sitesWithWords = this.intersectMax(arrs, 5, isWordsValidForSite);
+
+    return this.uniqueArr(sitesWithWords).map((siteId) => {
+      const site = this.site[siteId];
+      return {
+        ingress: this.constructIngress(words, site),
+        url: site.url,
+      };
+    });
   }
 
   private isAdjecentWords(words: string[], site: Site): boolean {
@@ -194,20 +194,31 @@ export class Engine {
    * Get intersection of arrays up to max count
    * @param arrs
    * @param maxCount
+   * @param shouldBeAdded - if defined, will be required to return true to add value to intersection result list
    */
-  private intersectMax(arrs: number[][], maxCount: number): number[] {
+  private intersectMax(
+    arrs: number[][],
+    maxCount: number,
+    shouldBeAdded?: (val: number) => boolean
+  ): number[] {
     if (arrs.length === 0) return [];
     if (arrs.length === 1) return arrs[0];
     const result: number[] = [];
     let indices = new Array(arrs.length).fill(0);
     while (result.length < maxCount) {
-      let vals = [];
+      let vals: number[] = [];
       for (let i = 0; i < arrs.length; i++) {
         const ind = indices[i];
         if (ind >= arrs[i].length) return result;
         vals.push(arrs[i][ind]);
       }
-      if (this.isAllEqual(vals)) result.push(vals[0]);
+      if (this.isAllEqual(vals)) {
+        let add = false;
+        if (shouldBeAdded) {
+          if (shouldBeAdded(vals[0])) add = true;
+        } else add = true;
+        if (add) result.push(vals[0]);
+      }
       const minValue = Math.min(...vals);
       const arrIndexWithSmallestValue = vals.indexOf(minValue);
       indices[arrIndexWithSmallestValue] += 1;
