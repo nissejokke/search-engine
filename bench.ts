@@ -68,7 +68,7 @@ let skipped = 0;
 
     console.log('');
     console.log(engine.seed, 'pages loaded');
-    console.log(Object.keys(engine.index).length + ' words loaded');
+    console.log(Object.keys(engine.index).length, 'words loaded');
     console.log(skipped, 'skipped');
     console.time();
 

@@ -1,6 +1,6 @@
 import { Engine } from './engine';
 
-describe('Search', () => {
+describe('Planets', () => {
   let engine: Engine;
   beforeEach(() => {
     /*
@@ -107,5 +107,24 @@ describe('Search', () => {
     expect(result).toHaveLength(1);
     expect(result[0].url).toBe('https://en.wikipedia.org/wiki/Jupiter');
     expect(result[0].ingress).toContain('from the sun');
+  });
+});
+
+describe('Chemicals', () => {
+  let engine: Engine;
+  beforeEach(() => {
+    engine = new Engine();
+    engine.add({
+      text: `Petrochemicals (also known as petroleum distillates) are the 
+            chemical products obtained from petroleum by refining. 
+            Some chemical compounds made from petroleum are also obtained 
+            from other fossil fuels, such as coal or natural gas, 
+            or renewable sources such as maize, palm fruit or sugar cane.`,
+      url: 'https://en.wikipedia.org/wiki/Petrochemical',
+    });
+  });
+  test('Should not match', () => {
+    const result = engine.search('from country he');
+    expect(result).toHaveLength(0);
   });
 });

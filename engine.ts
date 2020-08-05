@@ -119,9 +119,7 @@ export class Engine {
   search(text: string): SearchResult[] {
     const { words, quotes } = this.toWords(text, true);
     // arrays of sites where words exist
-    const arrs = words
-      .map((word) => this.index[word] || [])
-      .filter((arr) => arr.length > 0);
+    const arrs = words.map((word) => this.index[word] || []);
 
     const isWordsValidForSite = (siteId: number) => {
       if (quotes.length === 0) return true;
