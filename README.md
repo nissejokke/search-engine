@@ -34,6 +34,6 @@ TODO:
 - [x] Search single word
 - [x] Search multiple words
 - [x] Search result introduction
-- [ ] Search quotes
+- [x] Search quotes
 - [ ] Ranking of results
 - [ ] Crawler

@@ -5,6 +5,7 @@ export interface SearchResult {
 
 export interface Site {
   url: string;
+  words: string[];
   /**
    * Word index for site
    */
@@ -12,9 +13,39 @@ export interface Site {
 }
 
 export class Engine {
+  /**
+   * Word to site index
+   * Example: {
+   *    'planet': [1],
+   *    'giant: [1],
+   * }
+   */
   index: Record<string, number[]>;
+  /**
+   * Site id to sites index
+   * Example: {
+   *    1: {
+   *        url: 'https://en.wikipedia.org/wiki/planet',
+   *        words: ['A', 'planet', 'is', 'an', 'astronomical', 'body', 'orbiting']
+   *        index: {
+   *            'gas': [44,22],
+   *            'giant': [89, 99]
+   *        },
+   *
+   *    }
+   * }
+   */
   site: Record<number, Site>;
+  /**
+   * Url to site id
+   * Example: {
+   *    'https://en.wikipedia.org/wiki/planet': 1
+   * }
+   */
   urlToSite: Record<string, number>;
+  /**
+   * Site seed
+   */
   seed: number;
 
   constructor() {
@@ -24,19 +55,26 @@ export class Engine {
     this.seed = 0;
   }
 
+  /**
+   * Add text to index
+   * @param param0
+   */
   add({ text, url }: { text: string; url: string }) {
     const siteKey = `site:${url}`;
+    const { words } = this.toWords(text, true);
+
     if (!this.urlToSite[url]) {
       this.urlToSite[url] = this.seed;
       this.site[this.seed] = {
         url,
+        words,
         index: {},
       };
       this.index[siteKey] = [];
     }
 
-    this.toWords(text).forEach((word, index) => {
-      const wordKey = word.toLowerCase();
+    words.forEach((word, index) => {
+      const wordKey = word;
 
       if (!this.index[wordKey]) this.index[wordKey] = [];
       this.index[wordKey].push(this.seed);
@@ -50,43 +88,73 @@ export class Engine {
     this.seed += 1;
   }
 
+  /**
+   * Free text search
+   * @param text
+   */
   search(text: string): SearchResult[] {
-    const words = this.toWords(text).map((word) => word.toLowerCase());
+    const { words, quotes } = this.toWords(text, true);
+    // arrays of sites where words exist
     const arrs = words
       .map((word) => {
         return this.uniqueArr(this.index[word] || []);
       })
       .filter((arr) => arr.length > 0);
 
-    const result = this.intersectMax(arrs, 5);
-    return this.uniqueArr(result).map((siteId) => {
-      const site = this.site[siteId];
-      return {
-        ingress: this.constructIngress(words, site.index), // site.index[words[0]],
-        url: site.url,
-      };
-    });
+    // intersect arrays to get all site where all words exist
+    const sitesWithWords = this.intersectMax(arrs, 5);
+    return this.uniqueArr(sitesWithWords)
+      .filter((siteId) => {
+        if (quotes.length === 0) return true;
+        const site = this.site[siteId];
+        for (let i = 0; i < quotes.length; i += 2) {
+          const quotedWords = words.slice(quotes[i], quotes[i + 1]);
+          if (this.isAdjecentWords(quotedWords, site)) return true;
+        }
+        return false;
+      })
+      .map((siteId) => {
+        const site = this.site[siteId];
+        return {
+          ingress: this.constructIngress(words, site),
+          url: site.url,
+        };
+      });
   }
 
-  private constructIngress(
-    words: string[],
-    index: Record<string, number[]>
-  ): string {
-    const getWordFromIndex = (wordIndex: number): string | null => {
-      const keys = Object.keys(index);
-      for (let k = 0; k < keys.length; k++) {
-        if (index[keys[k]].indexOf(wordIndex) > -1) return keys[k];
-      }
-      return null;
+  private isAdjecentWords(words: string[], site: Site): boolean {
+    const indices = words.map((word) => [...site.index[word]]);
+
+    // shift words according to index
+    // [[12,13,14]] => [[12,12,12]] (=true, they are adjectent, next to each other)
+    const indicesEqualized = indices.map((wordIndices, i) =>
+      wordIndices.map((ind) => ind - i)
+    );
+
+    return this.intersectMax(indicesEqualized, 1).length > 0;
+  }
+
+  /**
+   * Creates search result introduction text
+   * @param words searched words
+   * @param index site index
+   */
+  private constructIngress(words: string[], site: Site): string {
+    /**
+     * Push word att index to ingress
+     * @param ingress ingress to append to
+     * @param wordIndex index of word
+     */
+    const pushAtIndex = (ingress: string[], wordIndex: number) => {
+      const word = site.words[wordIndex];
+      if (word) ingress.push(word);
     };
-    const pushAtIndex = (parts: string[], ind: number) => {
-      const word = getWordFromIndex(ind);
-      if (word) parts.push(word);
-    };
+
+    // word indices to all hits in text
     const indices = this.uniqueArr(
       words
         .reduce((indices: number[], word) => {
-          const indicesForWord = index[word];
+          const indicesForWord = site.index[word];
           if (!indicesForWord) return indices;
           return indices.concat(indicesForWord);
         }, [])
@@ -94,24 +162,26 @@ export class Engine {
     );
 
     return indices
-      .reduce((parts, ind, ingIndex) => {
+      .reduce((ingress, ind, ingIndex) => {
         const getIndRelative = (relative: number) =>
           indices[ingIndex + relative];
         const isFirstWord = ingIndex === 0 || ind !== getIndRelative(-1) + 1;
         const isLastWord =
           ingIndex === indices.length - 1 || ind !== getIndRelative(+1) - 1;
-        if (isFirstWord) pushAtIndex(parts, ind - 2);
-        if (isFirstWord) pushAtIndex(parts, ind - 1);
-        pushAtIndex(parts, ind);
-        if (isLastWord) pushAtIndex(parts, ind + 1);
-        if (isLastWord) pushAtIndex(parts, ind + 2);
+
+        // two words before word to two words after word
+        if (isFirstWord) pushAtIndex(ingress, ind - 2);
+        if (isFirstWord) pushAtIndex(ingress, ind - 1);
+        pushAtIndex(ingress, ind);
+        if (isLastWord) pushAtIndex(ingress, ind + 1);
+        if (isLastWord) pushAtIndex(ingress, ind + 2);
         if (
           ingIndex < indices.length - 1 &&
           Math.abs(ind - indices[ingIndex + 1]) > 1 // the two words are not right next to each other
         )
-          parts.push('...');
+          ingress.push('...');
 
-        return parts;
+        return ingress;
       }, [] as string[])
       .join(' ');
   }
@@ -120,6 +190,11 @@ export class Engine {
     return [...new Set(arr)];
   }
 
+  /**
+   * Get intersection of arrays up to max count
+   * @param arrs
+   * @param maxCount
+   */
   private intersectMax(arrs: number[][], maxCount: number): number[] {
     if (arrs.length === 0) return [];
     if (arrs.length === 1) return arrs[0];
@@ -159,10 +234,31 @@ export class Engine {
     else return this.binarySearch(arr.slice(index), value);
   }
 
-  private toWords(text: string): string[] {
-    return text
-      .split(/\s/g)
-      .map((word) => word.replace(/[^\w\dåäö]/g, ''))
+  /**
+   * Factorize text to words
+   * @param text
+   * @param lowerCase
+   * @return {}
+   *    words - words in text
+   *    quotes - index where quotes start and end (pairs)
+   */
+  private toWords(
+    text: string,
+    lowerCase: boolean = false
+  ): { words: string[]; quotes: number[] } {
+    const words = text
+      .replace(/[\[\]\-,.?!]/g, ' ')
+      .replace(/[\"]/g, ' " ')
+      .split(/[\s]/g)
+      .map((word) => word.replace(/[^\w\dåäö"]/g, ''))
       .filter(Boolean);
+    return words.reduce(
+      (av, word, index) => {
+        if (word === '"') av.quotes.push(index - av.quotes.length);
+        else av.words.push(lowerCase ? word.toLowerCase() : word);
+        return av;
+      },
+      { words: [] as string[], quotes: [] as number[] }
+    );
   }
 }

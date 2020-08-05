@@ -62,6 +62,7 @@ describe('Search', () => {
     expect(result[0].url).toBe('https://en.wikipedia.org/wiki/Jupiter');
     expect(result[1].url).toBe('https://en.wikipedia.org/wiki/Saturn');
     expect(result[0].ingress).toContain('gas giant');
+    expect(result[1].ingress).toContain('gas giant');
   });
   test('Multiple hits', () => {
     const result = engine.search('Solar');
@@ -80,5 +81,31 @@ describe('Search', () => {
     expect(result).toHaveLength(1);
     expect(result[0].url).toBe('https://en.wikipedia.org/wiki/Saturn');
     expect(result[0].ingress).toBe('is the sixth planet from the');
+  });
+
+  test('Quotes no matches', () => {
+    const result = engine.search('"planet sixth"');
+    expect(result).toHaveLength(0);
+  });
+
+  test('Quotes one match', () => {
+    const result = engine.search('"after Jupiter"');
+    expect(result).toHaveLength(1);
+    expect(result[0].url).toBe('https://en.wikipedia.org/wiki/Saturn');
+    expect(result[0].ingress).toContain('after jupiter');
+  });
+
+  test('Quotes + suffix word', () => {
+    const result = engine.search('"from the Sun" Moon');
+    expect(result).toHaveLength(1);
+    expect(result[0].url).toBe('https://en.wikipedia.org/wiki/Jupiter');
+    expect(result[0].ingress).toContain('from the sun');
+  });
+
+  test('Quotes + prefix word', () => {
+    const result = engine.search('moon "from the Sun"');
+    expect(result).toHaveLength(1);
+    expect(result[0].url).toBe('https://en.wikipedia.org/wiki/Jupiter');
+    expect(result[0].ingress).toContain('from the sun');
   });
 });
