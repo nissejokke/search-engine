@@ -13,7 +13,7 @@ function parse(
   return new Promise((resolve, reject) => {
     try {
       const stream = fs.createReadStream(
-        path.join(__dirname, '../../Downloads/enwiki-latest-abstract.xml')
+        path.join(__dirname, '../../../Downloads/enwiki-latest-abstract.xml')
       );
       const xml = new XmlStream(stream, encoding);
       xml.on('endElement: doc', function (node: any) {

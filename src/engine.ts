@@ -143,6 +143,11 @@ export class Engine {
     });
   }
 
+  /**
+   * Are given words in order in given site? For quote search.
+   * @param words
+   * @param site
+   */
   private isAdjecentWords(words: string[], site: Site): boolean {
     const indices = words.map((word) => [...site.index[word]]);
 
@@ -186,6 +191,7 @@ export class Engine {
       .reduce((ingress, ind, ingIndex) => {
         const getIndRelative = (relative: number) =>
           indices[ingIndex + relative];
+
         const isFirstWord = ingIndex === 0 || ind !== getIndRelative(-1) + 1;
         const isLastWord =
           ingIndex === indices.length - 1 || ind !== getIndRelative(+1) - 1;
@@ -207,6 +213,10 @@ export class Engine {
       .join(' ');
   }
 
+  /**
+   * Unique values
+   * @param arr
+   */
   private uniqueArr(arr: number[]): number[] {
     return [...new Set(arr)];
   }
@@ -253,16 +263,29 @@ export class Engine {
     return result;
   }
 
+  /**
+   * Sum values in array
+   * @param vals
+   */
   private sumArray(vals: number[]): number {
     return vals.reduce((av, cv) => {
       return av + cv;
     }, 0);
   }
 
+  /**
+   * Are all values equal?
+   * @param vals
+   */
   private isAllEqual(vals: number[]) {
     return this.sumArray(vals) / vals.length == vals[0];
   }
 
+  /**
+   * Binary search
+   * @param arr
+   * @param value
+   */
   private binarySearch(arr: number[], value: number): number {
     const len = arr.length;
     if (len === 1) return arr[0];
@@ -307,10 +330,18 @@ export class Engine {
     );
   }
 
+  /**
+   * Filter stop words from words
+   * @param words
+   */
   private removeStopWords(words: string[]) {
     return words.filter((word) => !this.isStopWord(word));
   }
 
+  /**
+   * Is word a stop word?
+   * @param word
+   */
   private isStopWord(word: string): boolean {
     // TODO: Fix stop words
     return false;

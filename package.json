@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "jest",
-    "bench": "ts-node -O '{\"module\":\"commonjs\"}' bench.ts"
+    "bench": "ts-node -O '{\"module\":\"commonjs\"}' src/bench.ts"
   },
   "author": "",
   "license": "ISC",
