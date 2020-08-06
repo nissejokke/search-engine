@@ -26,8 +26,9 @@ export class Engine {
    * Example: {
    *    1: {
    *        url: 'https://en.wikipedia.org/wiki/planet',
-   *        words: ['A', 'planet', 'is', 'an', 'astronomical', 'body', 'orbiting']
+   *        words: ['A', 'planet', 'is', 'an', 'astronomical', 'body', 'orbiting', '.']
    *        index: {
+   *            'a': [0],
    *            'gas': [44,22],
    *            'giant': [89, 99]
    *        },
@@ -78,7 +79,7 @@ export class Engine {
    */
   add({ text, url }: { text: string; url: string }) {
     const siteKey = `site:${url}`;
-    const { words } = this.toWords(text, true, true);
+    const { words } = this.toWords(text);
 
     if (!this.urlToSite[url]) {
       this.urlToSite[url] = this.seed;
@@ -90,23 +91,24 @@ export class Engine {
       this.index[siteKey] = [];
     }
 
-    this.removeStopWords(words).forEach((word, index) => {
-      const wordKey = word;
+    // word index
+    words
+      .map((word) => word.toLowerCase())
+      .forEach((word) => {
+        if (!this.index[word]) this.index[word] = [];
+        if (!Array.isArray(this.index[word])) return;
 
-      if (!this.index[wordKey]) this.index[wordKey] = [];
-      if (!Array.isArray(this.index[wordKey])) return;
+        if (this.index[word].indexOf(this.seed) === -1)
+          this.index[word].push(this.seed);
+        this.index[siteKey].push(this.seed);
+      });
 
-      if (this.index[wordKey].indexOf(this.seed) === -1)
-        this.index[wordKey].push(this.seed);
-      this.index[siteKey].push(this.seed);
-
+    // site index
+    words.forEach((word, index) => {
+      if (!word) return;
       const siteIndex = this.site[this.seed].index;
-      if (!siteIndex[wordKey]) siteIndex[wordKey] = [];
-      siteIndex[wordKey].push(index);
-
-      if (!Array.isArray(this.index[wordKey])) {
-        console.error(this.index[wordKey], wordKey, 'is not an array');
-      }
+      if (!siteIndex[word]) siteIndex[word] = [];
+      if ((siteIndex[word] as any).push) siteIndex[word].push(index);
     });
 
     this.seed += 1;
@@ -117,9 +119,9 @@ export class Engine {
    * @param text
    */
   search(text: string): SearchResult[] {
-    const { words, quotes } = this.toWords(text, true);
+    const { words, quotes } = this.toWords(text);
     // arrays of sites where words exist
-    const arrs = words.map((word) => this.index[word] || []);
+    const arrs = words.map((word) => this.index[word.toLowerCase()] || []);
 
     const isWordsValidForSite = (siteId: number) => {
       if (quotes.length === 0) return true;
@@ -137,7 +139,7 @@ export class Engine {
     return this.uniqueArr(sitesWithWords).map((siteId) => {
       const site = this.site[siteId];
       return {
-        ingress: this.constructIngress(words, site),
+        ingress: this.constructIngress(words, quotes, site),
         url: site.url,
       };
     });
@@ -149,15 +151,33 @@ export class Engine {
    * @param site
    */
   private isAdjecentWords(words: string[], site: Site): boolean {
-    const indices = words.map((word) => [...site.index[word]]);
+    const indices = words
+      .filter((word) => site.index[word])
+      .map((word) => [...site.index[word]]);
 
+    return this.isWordIndicesAdjecent(indices);
+  }
+
+  /**
+   * Given multiple arrays of numbers, are there numbers which in each arr which come after each others
+   * @param indexArrs
+   */
+  private isWordIndicesAdjecent(indexArrs: number[][]) {
+    return this.adjecentWordIndicesIntersection(indexArrs).length > 0;
+  }
+
+  /**
+   * Word indices which intersections (first word index)
+   * @param indexArrs
+   */
+  private adjecentWordIndicesIntersection(indexArrs: number[][]): number[] {
     // shift words according to index
     // [[12,13,14]] => [[12,12,12]] (=true, they are adjectent, next to each other)
-    const indicesEqualized = indices.map((wordIndices, i) =>
+    const indicesEqualized = indexArrs.map((wordIndices, i) =>
       wordIndices.map((ind) => ind - i)
     );
 
-    return this.intersect(indicesEqualized, 1).length > 0;
+    return this.intersect(indicesEqualized, 1);
   }
 
   /**
@@ -165,7 +185,11 @@ export class Engine {
    * @param words searched words
    * @param index site index
    */
-  private constructIngress(words: string[], site: Site): string {
+  private constructIngress(
+    words: string[],
+    quotes: number[],
+    site: Site
+  ): string {
     /**
      * Push word att index to ingress
      * @param ingress ingress to append to
@@ -176,41 +200,79 @@ export class Engine {
       if (word) ingress.push(word);
     };
 
-    // word indices to all hits in text
-    const indices = this.uniqueArr(
-      words
-        .reduce((indices: number[], word) => {
-          const indicesForWord = site.index[word];
-          if (!indicesForWord) return indices;
-          return indices.concat(indicesForWord);
-        }, [])
-        .sort()
-    );
+    /**
+     * Merge arrays
+     * @param arrs
+     */
+    const joinArrs = (arrs: number[][]) =>
+      arrs.reduce((av, cv) => {
+        return av.concat(cv);
+      }, []);
 
-    return indices
-      .reduce((ingress, ind, ingIndex) => {
-        const getIndRelative = (relative: number) =>
-          indices[ingIndex + relative];
+    const capitalizeFirstLetter = (str: string) =>
+      str.substring(0, 1).toUpperCase() + str.substring(1);
 
-        const isFirstWord = ingIndex === 0 || ind !== getIndRelative(-1) + 1;
+    // words to indices
+    const indices = words
+      .map(
+        (word) => site.index[word] || site.index[capitalizeFirstLetter(word)]
+      )
+      .map((arr) => arr.filter((val) => Number.isInteger(val)));
+
+    // get quoted indices first and keep them separate
+    let quotedIndices: number[][] = [];
+    for (let i = 0; i < quotes.length; i += 2) {
+      const qIndices = indices.slice(quotes[i], quotes[i + 1]);
+      const intersection = this.adjecentWordIndicesIntersection(qIndices);
+      for (let j = 0; j < qIndices.length - 1; j++)
+        intersection.push(intersection[j] + 1);
+      quotedIndices.push(intersection);
+    }
+
+    // remove quoted words from indices (leaving unquoted words)
+    for (let i = 0; i < quotes.length; i += 2) {
+      indices.splice(quotes[i], quotes[i + 1]);
+    }
+
+    let ingressIndexResult: number[] = [];
+
+    // join quotes
+    if (quotedIndices.length) ingressIndexResult = joinArrs(quotedIndices);
+
+    // join the rest
+    ingressIndexResult = ingressIndexResult.concat(joinArrs(indices));
+
+    return ingressIndexResult
+      .sort((a, b) => a - b)
+      .reduce((ingress, index, arrIndex, arr) => {
+        const getIndRelative = (relative: number) => arr[arrIndex + relative];
+
+        const isFirstWord = arrIndex === 0 || index !== getIndRelative(-1) + 1;
         const isLastWord =
-          ingIndex === indices.length - 1 || ind !== getIndRelative(+1) - 1;
+          arrIndex === arr.length - 1 || index !== getIndRelative(+1) - 1;
 
         // two words before word to two words after word
-        if (isFirstWord) pushAtIndex(ingress, ind - 2);
-        if (isFirstWord) pushAtIndex(ingress, ind - 1);
-        pushAtIndex(ingress, ind);
-        if (isLastWord) pushAtIndex(ingress, ind + 1);
-        if (isLastWord) pushAtIndex(ingress, ind + 2);
+        if (isFirstWord) {
+          pushAtIndex(ingress, index - 2);
+          pushAtIndex(ingress, index - 1);
+          ingress.push('"-');
+        }
+        pushAtIndex(ingress, index);
+        if (isLastWord) {
+          ingress.push('-"');
+          pushAtIndex(ingress, index + 1);
+          pushAtIndex(ingress, index + 2);
+        }
         if (
-          ingIndex < indices.length - 1 &&
-          Math.abs(ind - indices[ingIndex + 1]) > 1 // the two words are not right next to each other
+          arrIndex < arr.length - 1 &&
+          Math.abs(index - arr[arrIndex + 1]) > 1 // the two words are not right next to each other
         )
           ingress.push('...');
 
         return ingress;
       }, [] as string[])
-      .join(' ');
+      .join(' ')
+      .replace(/("- | -")/g, '"');
   }
 
   /**
@@ -306,12 +368,12 @@ export class Engine {
   private toWords(
     text: string,
     lowerCase: boolean = false,
-    keepStopWords: boolean = false
+    removeStopWords: boolean = false
   ): { words: string[]; quotes: number[] } {
     const isOkWord = (word: string) =>
       Boolean(word) &&
-      (keepStopWords ||
-        (!keepStopWords && (word === '"' || !this.isStopWord(word))));
+      (!removeStopWords ||
+        (removeStopWords && (word === '"' || !this.isStopWord(word))));
 
     const words = text
       .replace(/[^\w\dåäö"\s]/g, ' ')
@@ -343,8 +405,6 @@ export class Engine {
    * @param word
    */
   private isStopWord(word: string): boolean {
-    // TODO: Fix stop words
-    return false;
     return this.stopWords[word];
   }
 }

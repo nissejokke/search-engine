@@ -55,14 +55,16 @@ describe('Planets', () => {
     const result = engine.search('brightest');
     expect(result).toHaveLength(1);
     expect(result[0].url).toBe('https://en.wikipedia.org/wiki/Jupiter');
+    expect(result[0].ingress).toContain('of the "brightest" objects visible');
+    expect(result[0].ingress).toContain('the third "brightest" natural object');
   });
   test('Two results', () => {
     const result = engine.search('giant');
     expect(result).toHaveLength(2);
     expect(result[0].url).toBe('https://en.wikipedia.org/wiki/Jupiter');
     expect(result[1].url).toBe('https://en.wikipedia.org/wiki/Saturn');
-    expect(result[0].ingress).toContain('gas giant');
-    expect(result[1].ingress).toContain('gas giant');
+    expect(result[0].ingress).toContain('gas "giant"');
+    expect(result[1].ingress).toContain('gas "giant"');
   });
   test('Multiple hits', () => {
     const result = engine.search('Solar');
@@ -73,14 +75,14 @@ describe('Planets', () => {
     expect(result).toHaveLength(1);
     expect(result[0].url).toBe('https://en.wikipedia.org/wiki/Jupiter');
     expect(result[0].ingress).toBe(
-      'known to ancient civilizations since before'
+      'known to "ancient civilizations" since before'
     );
   });
   test('Single words', () => {
     const result = engine.search('planet sixth');
     expect(result).toHaveLength(1);
     expect(result[0].url).toBe('https://en.wikipedia.org/wiki/Saturn');
-    expect(result[0].ingress).toBe('is the sixth planet from the');
+    expect(result[0].ingress).toBe('is the "sixth planet" from the');
   });
 
   test('Quotes no matches', () => {
@@ -92,21 +94,28 @@ describe('Planets', () => {
     const result = engine.search('"after Jupiter"');
     expect(result).toHaveLength(1);
     expect(result[0].url).toBe('https://en.wikipedia.org/wiki/Saturn');
-    expect(result[0].ingress).toContain('after jupiter');
+    expect(result[0].ingress).toContain('after Jupiter');
   });
 
   test('Quotes + suffix word', () => {
     const result = engine.search('"from the Sun" Moon');
     expect(result).toHaveLength(1);
     expect(result[0].url).toBe('https://en.wikipedia.org/wiki/Jupiter');
-    expect(result[0].ingress).toContain('from the sun');
+    expect(result[0].ingress).toMatch(/"from the Sun".*?"Moon"/);
   });
 
-  test('Quotes + prefix word', () => {
-    const result = engine.search('moon "from the Sun"');
+  test('Quotes + prefix word occuring after, incorrect case', () => {
+    const result = engine.search('moon "from the Sun"'); // moon incorrect case
     expect(result).toHaveLength(1);
     expect(result[0].url).toBe('https://en.wikipedia.org/wiki/Jupiter');
-    expect(result[0].ingress).toContain('from the sun');
+    expect(result[0].ingress).toMatch(/"from the Sun".*?"Moon"/);
+  });
+
+  test('Quotes + prefix word ocurring first, incorrect case', () => {
+    const result = engine.search('fifth "from the sun"'); // sun incorrect case
+    expect(result).toHaveLength(1);
+    expect(result[0].url).toBe('https://en.wikipedia.org/wiki/Jupiter');
+    expect(result[0].ingress).toMatch(/"fifth".*"from the Sun"/);
   });
 });
 
