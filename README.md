@@ -19,22 +19,33 @@ engine.add({
 ```
 
 ```typescript
-const result = engine.search('jupiter');
+engine.search('brightest');
+// [
+//   {
+//     ingress: 'of the "brightest" objects visible ... the third "brightest" natural object',
+//     url: 'https://en.wikipedia.org/wiki/Jupiter'
+//   }
+// ]
 ```
 
-Result:
+```typescript
+engine.search('planet sixth');
+// [
+//   {
+//     ingress: 'is the "sixth planet" from the',
+//     url: 'https://en.wikipedia.org/wiki/Saturn'
+//   }
+// ]
+```
 
-```json
-[
-  {
-    "ingress": "jupiter is ... combined jupiter is ... earth jupiter can",
-    "url": "https://en.wikipedia.org/wiki/Jupiter"
-  },
-  {
-    "ingress": "after jupiter it",
-    "url": "https://en.wikipedia.org/wiki/Saturn"
-  }
-]
+```typescript
+engine.search('"from the Sun" Moon');
+// [
+//   {
+//     ingress: 'fifth planet "from the Sun" and the ... after the "Moon" and Venus',
+//     url: 'https://en.wikipedia.org/wiki/Jupiter'
+//   }
+// ]
 ```
 
 ## Benchmark
@@ -55,26 +66,27 @@ Result in 2.632ms
 [
   {
     ingress:
-      'branches of philosophy and psychology ... philosophy and psychology concerning emotion',
+      'branches of "philosophy" and psychology ... philosophy and "psychology" concerning emotion',
     url: 'https://en.wikipedia.org/wiki/Affection',
   },
   {
     ingress:
-      'in developmental psychology and moral ... and bioethical philosophy autonomy from',
+      'In developmental "psychology" and moral ... and bioethical "philosophy" autonomy from',
     url: 'https://en.wikipedia.org/wiki/Autonomy',
   },
   {
-    ingress: 'such as philosophy and psychology ... philosophy and psychology',
+    ingress:
+      'such as "philosophy" and psychology ... philosophy and "psychology"',
     url: 'https://en.wikipedia.org/wiki/Social_studies',
   },
   {
     ingress:
-      'hague studied philosophy and psychology ... philosophy and psychology at groningen',
+      'Hague studied "philosophy" and psychology ... philosophy and "psychology" at Groningen',
     url: 'https://en.wikipedia.org/wiki/Johannes_Jacobus_Poortman',
   },
   {
     ingress:
-      'encyclopedia of philosophy which begins ... in moral psychology ethical theory',
+      'Encyclopedia of "Philosophy" which begins ... in moral "psychology" ethical theory',
     url: 'https://en.wikipedia.org/wiki/Suffering',
   },
 ];
@@ -90,17 +102,17 @@ Result in 1.021ms
 [
   {
     ingress:
-      'valued functions german mathematician carl ... german mathematician carl friedrich gauss 1777',
+      'valued functions "German" mathematician Carl ... German mathematician "Carl Friedrich" Gauss 1777',
     url: 'https://en.wikipedia.org/wiki/Number_theory',
   },
   {
     ingress:
-      'karl friedrich bahrdt august ... also spelled carl friedrich bahrdt was ... an unorthodox german protestant biblical ... characters in german learning',
+      'also spelled "Carl Friedrich" Bahrdt was ... an unorthodox "German" Protestant biblical ... characters in "German" learning',
     url: 'https://en.wikipedia.org/wiki/Karl_Friedrich_Bahrdt',
   },
   {
     ingress:
-      'was a german classical scholar ... franz ludwig carl friedrich passow september',
+      'Franz Ludwig "Carl Friedrich" Passow September ... was a "German" classical scholar',
     url: 'https://en.wikipedia.org/wiki/Franz_Passow',
   },
 ];

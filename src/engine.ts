@@ -123,7 +123,11 @@ export class Engine {
     // arrays of sites where words exist
     const arrs = words.map((word) => this.index[word.toLowerCase()] || []);
 
-    const isWordsValidForSite = (siteId: number) => {
+    /**
+     * Checks if at least one quote exist on site
+     * @param siteId
+     */
+    const isQuoteOnSite = (siteId: number) => {
       if (quotes.length === 0) return true;
       const site = this.site[siteId];
       for (let i = 0; i < quotes.length; i += 2) {
@@ -134,7 +138,7 @@ export class Engine {
     };
 
     // intersect arrays to get all site where all words exist
-    const sitesWithWords = this.intersect(arrs, 10, isWordsValidForSite);
+    const sitesWithWords = this.intersect(arrs, 10, isQuoteOnSite);
 
     return this.uniqueArr(sitesWithWords).map((siteId) => {
       const site = this.site[siteId];

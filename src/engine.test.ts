@@ -81,6 +81,7 @@ describe('Planets', () => {
   test('Single words', () => {
     const result = engine.search('planet sixth');
     expect(result).toHaveLength(1);
+
     expect(result[0].url).toBe('https://en.wikipedia.org/wiki/Saturn');
     expect(result[0].ingress).toBe('is the "sixth planet" from the');
   });
