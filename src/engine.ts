@@ -61,12 +61,16 @@ export class Engine {
     this.seed = 0;
     this.stopWords = {
       a: true,
+      an: true,
+      am: true,
       and: true,
       be: true,
       have: true,
       i: true,
       in: true,
+      is: true,
       of: true,
+      on: true,
       that: true,
       the: true,
       to: true,
@@ -90,17 +94,19 @@ export class Engine {
       };
       this.index[siteKey] = [];
     }
+    this.index[siteKey].push(this.seed);
 
     // word index
     words
       .map((word) => word.toLowerCase())
+      .filter((word) => !this.isStopWord(word))
       .forEach((word) => {
         if (!this.index[word]) this.index[word] = [];
         if (!Array.isArray(this.index[word])) return;
 
-        if (this.index[word].indexOf(this.seed) === -1)
-          this.index[word].push(this.seed);
-        this.index[siteKey].push(this.seed);
+        if (this.index[word].indexOf(this.seed) === -1) {
+        }
+        this.index[word].push(this.seed);
       });
 
     // site index
@@ -121,7 +127,9 @@ export class Engine {
   search(text: string): SearchResult[] {
     const { words, quotes } = this.toWords(text);
     // arrays of sites where words exist
-    const arrs = words.map((word) => this.index[word.toLowerCase()] || []);
+    const arrs = words
+      .filter((word) => !this.isStopWord(word))
+      .map((word) => this.index[word.toLowerCase()] || []);
 
     /**
      * Checks if at least one quote exist on site
@@ -420,7 +428,7 @@ export class Engine {
    * @param word
    */
   private isStopWord(word: string): boolean {
-    return this.stopWords[word];
+    return word.length < 2 || this.stopWords[word];
   }
 
   capitalizeFirstLetter(str: string) {

@@ -124,6 +124,6 @@ Result in 1.021ms
 - [x] Search multiple words
 - [x] Search result introduction
 - [x] Search quotes
-- [ ] Stopwords
+- [x] Stopwords
 - [ ] Stemming
 - [ ] Ranking of results
