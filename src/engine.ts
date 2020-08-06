@@ -113,8 +113,9 @@ export class Engine {
     words.forEach((word, index) => {
       if (!word) return;
       const siteIndex = this.site[this.seed].index;
-      if (!siteIndex[word]) siteIndex[word] = [];
-      if ((siteIndex[word] as any).push) siteIndex[word].push(index);
+      const wordLower = word.toLowerCase();
+      if (!siteIndex[wordLower]) siteIndex[wordLower] = [];
+      if ((siteIndex[wordLower] as any).push) siteIndex[wordLower].push(index);
     });
 
     this.seed += 1;
@@ -126,10 +127,14 @@ export class Engine {
    */
   search(text: string): SearchResult[] {
     const { words, quotes } = this.toWords(text);
+    const wordsWithoutStopWords = words.filter(
+      (word) => !this.isStopWord(word)
+    );
+
     // arrays of sites where words exist
-    const arrs = words
-      .filter((word) => !this.isStopWord(word))
-      .map((word) => this.index[word.toLowerCase()] || []);
+    const arrs = wordsWithoutStopWords.map(
+      (word) => this.index[word.toLowerCase()] || []
+    );
 
     /**
      * Checks if at least one quote exist on site
@@ -146,9 +151,13 @@ export class Engine {
     };
 
     // intersect arrays to get all site where all words exist
-    const sitesWithWords = this.intersect(arrs, 10, isQuoteOnSite);
+    const sitesWithWords = this.uniqueArr(
+      this.intersect(arrs, 100, isQuoteOnSite)
+    );
 
-    return this.uniqueArr(sitesWithWords).map((siteId) => {
+    this.rankSites(wordsWithoutStopWords, sitesWithWords);
+
+    return sitesWithWords.map((siteId) => {
       const site = this.site[siteId];
       return {
         ingress: this.constructIngress(words, quotes, site),
@@ -157,33 +166,32 @@ export class Engine {
     });
   }
 
+  private rankSites(words: string[], sites: number[]) {
+    const indicesForWord = (word: string, site: Site) =>
+      site.index[word.toLowerCase()];
+
+    const sorted = sites.sort((siteA, siteB) => {
+      const indicesA = indicesForWord(words[0], this.site[siteA]);
+      const indicesB = indicesForWord(words[0], this.site[siteB]);
+
+      const titleA = indicesA[0] === 0;
+      const titleB = indicesB[0] === 0;
+
+      if (titleA === titleB) return siteA - siteB;
+      if (titleB) return 1;
+      return -1;
+    });
+    return sorted;
+  }
+
   /**
    * Are given words in order in given site? For quote search.
    * @param words
    * @param site
    */
   private isAdjecentWords(words: string[], site: Site): boolean {
-    const indices = words.map((word) => this.getSiteWordIndices(word, site));
+    const indices = words.map((word) => site.index[word.toLowerCase()]);
     return this.isWordIndicesAdjecent(indices);
-  }
-
-  /**
-   * Get word from site index, tests different spellings
-   * @param word
-   * @param site
-   */
-  private getSiteWordIndices(word: string, site: Site): number[] {
-    let indices =
-      site.index[word] ||
-      site.index[word.toLowerCase()] ||
-      site.index[this.capitalizeFirstLetter(word)] ||
-      site.index[word.toUpperCase()];
-    if (indices) return indices;
-    const wordLower = word.toLowerCase();
-    const key = Object.keys(site.index).find(
-      (indexWord) => indexWord.toLowerCase() === wordLower
-    );
-    return key ? site.index[key] || [] : [];
   }
 
   /**
@@ -239,7 +247,7 @@ export class Engine {
 
     // words to indices
     const indices = words
-      .map((word) => this.getSiteWordIndices(word, site))
+      .map((word) => site.index[word.toLowerCase()])
       .map((arr) => arr.filter((val) => Number.isInteger(val)));
 
     // get quoted indices first and keep them separate

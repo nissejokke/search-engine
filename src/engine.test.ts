@@ -202,7 +202,8 @@ test('should get results', () => {
       url: 'https://en.wikipedia.org/wiki/Franz_Passow',
     },
     {
-      text: 'Carl Friedrich Christian Mohs ... was a German geologist and',
+      text:
+        'Geologist Carl Friedrich Christian Mohs ... was a German geologist and',
       url: 'https://en.wikipedia.org/wiki/Friedrich_Mohs',
     },
     {
@@ -224,4 +225,30 @@ test('should get results', () => {
     'mathematician "Carl Friedrich" Gauss 1777'
   );
   expect(result[5].ingress).toContain('"CARL FrieDricH"');
+});
+
+describe('rank', () => {
+  test('Should rank based on title', () => {
+    let engine: Engine = new Engine();
+    engine.add({
+      text: `Comet - A comet is an icy, small Solar System body that, 
+            when passing close to the Sun, warms and begins to 
+            release gases, a process called outgassing`,
+      url: 'https://en.wikipedia.org/wiki/Comet',
+    });
+    engine.add({
+      text: `Assembly line - An assembly line is a manufacturing process 
+            (often called a progressive assembly)`,
+      url: 'https://en.wikipedia.org/wiki/Assembly_line',
+    });
+    engine.add({
+      text: `Process - A process is series or set of activities that interact to 
+            produce a result; it may occur once-only or be recurrent 
+            or periodic.`,
+      url: 'https://en.wikipedia.org/wiki/Process',
+    });
+
+    const result = engine.search('process');
+    expect(result[0].url).toBe('https://en.wikipedia.org/wiki/Process');
+  });
 });

@@ -41,7 +41,7 @@ function parse(
 
 let count = 0;
 const engine = new Engine();
-const max = 50000;
+const max = 5000;
 let skipped = 0;
 
 (async () => {
@@ -61,7 +61,10 @@ let skipped = 0;
         process.stdout.write('\b\b\b');
         process.stdout.write(Math.round((count * 100) / max).toString());
       }
-      engine.add({ text: item.abstract, url: item.url });
+      engine.add({
+        text: item.title.replace('Wikipedia: ', '') + ' - ' + item.abstract,
+        url: item.url,
+      });
       const keepAdding = ++count < max;
       return keepAdding;
     });
@@ -74,6 +77,7 @@ let skipped = 0;
 
     const result = engine.search('philosophy psychology');
     console.log(result);
+    console.log(result.length);
 
     console.timeEnd();
     console.log('-----');

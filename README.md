@@ -127,3 +127,4 @@ Result in 1.021ms
 - [x] Stopwords
 - [ ] Stemming
 - [ ] Ranking of results
+- [ ] Store index as files
