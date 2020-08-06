@@ -134,7 +134,7 @@ export class Engine {
     };
 
     // intersect arrays to get all site where all words exist
-    const sitesWithWords = this.intersect(arrs, 5, isWordsValidForSite);
+    const sitesWithWords = this.intersect(arrs, 10, isWordsValidForSite);
 
     return this.uniqueArr(sitesWithWords).map((siteId) => {
       const site = this.site[siteId];
@@ -151,11 +151,27 @@ export class Engine {
    * @param site
    */
   private isAdjecentWords(words: string[], site: Site): boolean {
-    const indices = words
-      .filter((word) => site.index[word])
-      .map((word) => [...site.index[word]]);
-
+    const indices = words.map((word) => this.getSiteWordIndices(word, site));
     return this.isWordIndicesAdjecent(indices);
+  }
+
+  /**
+   * Get word from site index, tests different spellings
+   * @param word
+   * @param site
+   */
+  private getSiteWordIndices(word: string, site: Site): number[] {
+    let indices =
+      site.index[word] ||
+      site.index[word.toLowerCase()] ||
+      site.index[this.capitalizeFirstLetter(word)] ||
+      site.index[word.toUpperCase()];
+    if (indices) return indices;
+    const wordLower = word.toLowerCase();
+    const key = Object.keys(site.index).find(
+      (indexWord) => indexWord.toLowerCase() === wordLower
+    );
+    return key ? site.index[key] || [] : [];
   }
 
   /**
@@ -209,14 +225,9 @@ export class Engine {
         return av.concat(cv);
       }, []);
 
-    const capitalizeFirstLetter = (str: string) =>
-      str.substring(0, 1).toUpperCase() + str.substring(1);
-
     // words to indices
     const indices = words
-      .map(
-        (word) => site.index[word] || site.index[capitalizeFirstLetter(word)]
-      )
+      .map((word) => this.getSiteWordIndices(word, site))
       .map((arr) => arr.filter((val) => Number.isInteger(val)));
 
     // get quoted indices first and keep them separate
@@ -406,5 +417,9 @@ export class Engine {
    */
   private isStopWord(word: string): boolean {
     return this.stopWords[word];
+  }
+
+  capitalizeFirstLetter(str: string) {
+    return str.substring(0, 1).toUpperCase() + str.substring(1);
   }
 }

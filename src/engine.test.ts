@@ -117,23 +117,110 @@ describe('Planets', () => {
     expect(result[0].url).toBe('https://en.wikipedia.org/wiki/Jupiter');
     expect(result[0].ingress).toMatch(/"fifth".*"from the Sun"/);
   });
+
+  test('Quotes incorrect case', () => {
+    const result = engine.search('"moon and venus"'); // incorrect case
+    expect(result).toHaveLength(1);
+  });
 });
 
-describe('Chemicals', () => {
+test('Should not match', () => {
   let engine: Engine;
-  beforeEach(() => {
-    engine = new Engine();
-    engine.add({
-      text: `Petrochemicals (also known as petroleum distillates) are the 
+  engine = new Engine();
+  engine.add({
+    text: `Petrochemicals (also known as petroleum distillates) are the 
             chemical products obtained from petroleum by refining. 
             Some chemical compounds made from petroleum are also obtained 
             from other fossil fuels, such as coal or natural gas, 
             or renewable sources such as maize, palm fruit or sugar cane.`,
-      url: 'https://en.wikipedia.org/wiki/Petrochemical',
-    });
+    url: 'https://en.wikipedia.org/wiki/Petrochemical',
   });
-  test('Should not match', () => {
-    const result = engine.search('from country he');
-    expect(result).toHaveLength(0);
+
+  const result = engine.search('from country he');
+  expect(result).toHaveLength(0);
+});
+
+test('should get results', () => {
+  let engine: Engine;
+  engine = new Engine();
+  [
+    {
+      text: 'generalized by Friedrich Bessel are',
+      url: 'https://en.wikipedia.org/wiki/Bessel_function',
+    },
+    {
+      text: 'upon by Friedrich Hayek',
+      url: 'https://en.wikipedia.org/wiki/Economic_calculation_problem',
+    },
+    {
+      text: 'V or Friedrich V may',
+      url: 'https://en.wikipedia.org/wiki/Frederick_V',
+    },
+    {
+      text:
+        'other deities Friedrich Schelling 1775 ... word and Friedrich Welcker 1784',
+      url: 'https://en.wikipedia.org/wiki/Henotheism',
+    },
+    {
+      text: 'Johann Friedrich Agricola 4',
+      url: 'https://en.wikipedia.org/wiki/Johann_Friedrich_Agricola',
+    },
+    {
+      text: 'Johann Friedrich Endersch 25',
+      url: 'https://en.wikipedia.org/wiki/Johann_Friedrich_Endersch',
+    },
+    {
+      text: 'by Carl Friedrich Gauss in',
+      url: 'https://en.wikipedia.org/wiki/Modular_arithmetic',
+    },
+    {
+      text: 'and mineralogist Friedrich Mohs it',
+      url: 'https://en.wikipedia.org/wiki/Mohs_scale_of_mineral_hardness',
+    },
+    {
+      text: 'mathematician Carl Friedrich Gauss 1777',
+      url: 'https://en.wikipedia.org/wiki/Number_theory',
+    },
+    {
+      text:
+        'Georg Wilhelm Friedrich Hegel 1770 ... 1831 and Friedrich Wilhelm Joseph',
+      url: 'https://en.wikipedia.org/wiki/Panentheism',
+    },
+    {
+      text: 'Marx and Friedrich Engels Commissioned',
+      url: 'https://en.wikipedia.org/wiki/The_Communist_Manifesto',
+    },
+    {
+      text:
+        'also spelled Carl Friedrich Bahrdt was ... an unorthodox German Protestant biblical ... characters in German learning',
+      url: 'https://en.wikipedia.org/wiki/Karl_Friedrich_Bahrdt',
+    },
+    {
+      text:
+        'Franz Ludwig Carl Friedrich Passow September ... was a German classical scholar',
+      url: 'https://en.wikipedia.org/wiki/Franz_Passow',
+    },
+    {
+      text: 'Carl Friedrich Christian Mohs ... was a German geologist and',
+      url: 'https://en.wikipedia.org/wiki/Friedrich_Mohs',
+    },
+    {
+      text: 'of Johann Friedrich Meckel after',
+      url: 'https://en.wikipedia.org/wiki/Recapitulation_theory',
+    },
+    {
+      text: 'German mathematician "CARL FrieDricH" Gauss Richard',
+      url: 'https://en.wikipedia.org/wiki/G._Waldo_Dunnington',
+    },
+  ].forEach((text) => {
+    engine.add({ text: text.text, url: text.url });
   });
+
+  const result = engine.search('"carl friedrich"');
+  expect(result).toHaveLength(6);
+  expect(result[0].ingress).toContain('by "Carl Friedrich" Gauss in');
+  expect(result[1].ingress).toContain(
+    'mathematician "Carl Friedrich" Gauss 1777'
+  );
+  expect(result[5].ingress).toContain('"CARL FrieDricH"');
 });
