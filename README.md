@@ -6,6 +6,8 @@ Simple search engine with focus on performance.
 - Quotes to match exact
 - Ranking on title and url
 
+![Broghtest search example](brightest-search.png)
+
 Example:
 
 ```typescript
