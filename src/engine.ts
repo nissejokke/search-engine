@@ -11,6 +11,9 @@ export interface Storage {
 
   getUrlToPage: (url: string) => Promise<number | undefined>;
   setUrlToPage: (url: string, pageId: number) => Promise<void>;
+
+  getSeed: () => Promise<number>;
+  increaseSeed: () => Promise<void>;
 }
 
 export interface SearchResult {
@@ -29,17 +32,11 @@ export interface Page {
 
 export class Engine {
   /**
-   * Page seed
-   */
-  seed: number;
-
-  /**
    * Stop words - excluded from index
    */
   stopWords: Record<string, boolean>;
 
   constructor(public storage: Storage = new MemoryStorage()) {
-    this.seed = 100; // so that page files can be broken up in directories with two digits
     this.stopWords = {
       a: true,
       an: true,
@@ -63,26 +60,38 @@ export class Engine {
    * @param param0
    */
   async add({ text, url }: { text: string; url: string }): Promise<void> {
-    const pageKey = `site:${url}`;
+    // const pageKey = `site:${url}`;
     const { words } = this.toWords(text);
 
-    if (await this.storage.getUrlToPage(url))
-      throw new Error('page already in index');
+    const pageId = await this.storage.getUrlToPage(url);
+    if (pageId)
+      throw new Error('page already in index: ' + url + ', ' + pageId);
 
-    await this.storage.setUrlToPage(url, this.seed);
-    await this.storage.initWord(pageKey);
-    await this.storage.addWord(pageKey, this.seed);
+    const seed = await this.storage.getSeed();
+    await this.storage.setUrlToPage(url, seed);
+    // await this.storage.initWord(pageKey);
+    // await this.storage.addWord(pageKey, seed);
+
+    const addedWordsForPage = new Set();
 
     // word index
-    await Promise.all(
-      words
-        .map((word) => word.toLowerCase())
-        .filter((word) => !this.isStopWord(word))
-        .map(async (word) => {
-          await this.storage.initWord(word);
-          await this.storage.addWord(word, this.seed);
-        })
-    );
+    const addWords = words
+      .map((word) => word.toLowerCase())
+      .filter((word) => !this.isStopWord(word))
+      .map((word) => {
+        if (addedWordsForPage.has(word)) {
+          return;
+        }
+        addedWordsForPage.add(word);
+        return word;
+      });
+
+    for (let i = 0; i < addWords.length; i++) {
+      const word = addWords[i];
+      if (!word) continue;
+      await this.storage.initWord(word);
+      await this.storage.addWord(word, seed);
+    }
 
     // page index
     const pageIndex: Record<string, number[]> = {};
@@ -93,16 +102,15 @@ export class Engine {
       if ((pageIndex[wordLower] as any).push) pageIndex[wordLower].push(index);
     });
 
-    await this.storage.initPage(this.seed, { url, words, index: pageIndex });
-
-    this.seed += 1;
+    await this.storage.initPage(seed, { url, words, index: pageIndex });
+    await this.storage.increaseSeed();
   }
 
   /**
    * Free text search
    * @param text
    */
-  async search(text: string): Promise<SearchResult[]> {
+  async search(text: string, maxCount = 100): Promise<SearchResult[]> {
     const { words, quotes } = this.toWords(text);
     const wordsWithoutStopWords = words.filter(
       (word) => !this.isStopWord(word)
@@ -129,7 +137,7 @@ export class Engine {
 
     // intersect arrays to get all page where all words exist
     const pagesWithWords = this.uniqueArr(
-      await this.intersect(arrs, 100, isQuoteOnPage)
+      await this.intersect(arrs, maxCount, isQuoteOnPage)
     );
 
     let sortedPages = await this.rankPages(

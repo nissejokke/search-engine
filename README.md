@@ -133,4 +133,4 @@ Result in 1.021ms
 - [x] Ranking of results, higher rank if searched words is in:
   - [x] Title
   - [x] Url
-- [ ] Store index as files
+- [x] Store index as files

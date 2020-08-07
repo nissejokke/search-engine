@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "jest",
-    "bench": "ts-node -O '{\"module\":\"commonjs\"}' src/bench.ts"
+    "demo": "ts-node -O '{\"module\":\"commonjs\"}' src/demo.ts"
   },
   "author": "",
   "license": "ISC",
@@ -27,6 +27,7 @@
     }
   },
   "dependencies": {
+    "colors": "^1.4.0",
     "fs-extra": "^9.0.1"
   }
 }

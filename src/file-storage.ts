@@ -56,9 +56,22 @@ export class FileStorage implements Storage {
     const filename = word.replace(/[^a-z0-9]/gi, '_').toLowerCase();
     return path.join(
       this.indexPath,
-      '/words/',
-      filename.substring(0, 1) + '/' + filename.substring(1)
+      '/words',
+      '/' + filename.length,
+      '/',
+      this.divideIntoParts(filename, 2).join('/')
     );
+  }
+
+  private divideIntoParts(str: string, chunkSize: number) {
+    const parts = [];
+    let i;
+    const partsToDivideInto = Math.floor(str.length / chunkSize);
+    for (i = 0; i < partsToDivideInto - 1; i += chunkSize) {
+      parts.push(str.substring(i, i + chunkSize));
+    }
+    parts.push(str.substring(i));
+    return parts;
   }
 
   private async wordExists(word: string): Promise<boolean> {
@@ -86,8 +99,10 @@ export class FileStorage implements Storage {
     const filename = pageId.toString();
     return path.join(
       this.indexPath,
-      '/pages/',
-      filename.substring(0, 2) + '/' + filename.substring(2)
+      '/pages',
+      '/' + filename.length,
+      '/',
+      this.divideIntoParts(filename, 1).join('/')
     );
   }
 
@@ -109,7 +124,40 @@ export class FileStorage implements Storage {
   }
 
   private getUrlToPageFilename(url: string) {
-    const filename = url.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-    return path.join(this.indexPath, '/url-to-page/', filename);
+    // const filename = url
+    //   .replace(/[^a-zA-Z0-9]/gi, '_')
+    //   .replace(/([A-Z])/g, '-$1-')
+    //   .toLowerCase();
+    const filename = Buffer.from(url).toString('base64');
+    return path.join(
+      this.indexPath,
+      '/urls',
+      '/' + filename.length,
+      '/',
+      this.divideIntoParts(filename, 5).join('/')
+    );
+  }
+
+  // seed
+  async getSeed(): Promise<number> {
+    try {
+      return await fs.readJson(this.getSeedFilename());
+    } catch (err) {
+      return 0;
+    }
+  }
+
+  async increaseSeed(): Promise<void> {
+    let seed = await this.getSeed();
+    seed++;
+    await fs.ensureFile(this.getSeedFilename());
+    await fs.writeFile(this.getSeedFilename(), JSON.stringify(seed), {
+      encoding: 'utf-8',
+    });
+  }
+
+  private getSeedFilename() {
+    const filename = 'seed';
+    return path.join(this.indexPath, filename);
   }
 }

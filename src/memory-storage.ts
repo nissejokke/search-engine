@@ -2,6 +2,11 @@ import { Storage, Page } from './engine';
 
 export class MemoryStorage implements Storage {
   /**
+   * Page seed
+   */
+  seed: number;
+
+  /**
    * Word to page index
    * Example: {
    *    'planet': [1],
@@ -9,6 +14,7 @@ export class MemoryStorage implements Storage {
    * }
    */
   index: Record<string, number[]>;
+
   /**
    * page id to pages index
    * Example: {
@@ -25,6 +31,7 @@ export class MemoryStorage implements Storage {
    * }
    */
   pages: Record<number, Page>;
+
   /**
    * Url to page id
    * Example: {
@@ -37,6 +44,7 @@ export class MemoryStorage implements Storage {
     this.index = {};
     this.pages = {};
     this.urlToPage = {};
+    this.seed = 0; // so that page files can be broken up in directories with two digits
   }
 
   async *getWordIterator(word: string): AsyncIterableIterator<number> {
@@ -73,5 +81,13 @@ export class MemoryStorage implements Storage {
 
   async setUrlToPage(url: string, pageId: number): Promise<void> {
     this.urlToPage[url] = pageId;
+  }
+
+  // seed
+  async getSeed(): Promise<number> {
+    return this.seed;
+  }
+  async increaseSeed(): Promise<void> {
+    this.seed++;
   }
 }
