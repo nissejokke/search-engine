@@ -2,8 +2,8 @@
   "compilerOptions": {
     "incremental": true,
     "tsBuildInfoFile": "./node_modules/.cache/.tsbuildinfo",
-    "target": "es2018",
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "target": "ES2019",
+    "lib": ["dom", "dom.iterable", "esnext", "esnext.asynciterable"],
     "allowJs": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
@@ -16,7 +16,6 @@
     "isolatedModules": true,
     "newLine": "LF",
     "sourceMap": true,
-    "downlevelIteration": true,
     "typeRoots": ["./node_modules/@types", "src/@types"]
   }
 }

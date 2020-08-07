@@ -13,8 +13,13 @@ export class MemoryStorage implements Storage {
     this.index = {};
   }
 
-  async getWord(word: string): Promise<number[]> {
-    return this.index[word];
+  async *getWordIterator(word: string): AsyncIterableIterator<number> {
+    let i = 0;
+    if (this.index[word])
+      while (i < this.index[word].length) yield this.index[word][i++];
+  }
+  async initWord(word: string): Promise<void> {
+    if (!this.index[word]) this.index[word] = [];
   }
   async resetWord(word: string): Promise<void> {
     this.index[word] = [];

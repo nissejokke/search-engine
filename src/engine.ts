@@ -1,7 +1,8 @@
 import { MemoryStorage } from './memory-storage';
 
 export interface Storage {
-  getWord: (word: string) => Promise<number[]>;
+  getWordIterator: (word: string) => AsyncIterableIterator<number>;
+  initWord: (word: string) => Promise<void>;
   resetWord: (word: string) => Promise<void>;
   addWord: (word: string, pageId: number) => Promise<void>;
 }
@@ -101,8 +102,7 @@ export class Engine {
         .map((word) => word.toLowerCase())
         .filter((word) => !this.isStopWord(word))
         .map(async (word) => {
-          const wordIndex = await this.storage.getWord(word);
-          if (!wordIndex) await this.storage.resetWord(word);
+          await this.storage.initWord(word);
           await this.storage.addWord(word, this.seed);
         })
     );
@@ -130,40 +130,39 @@ export class Engine {
     );
 
     // arrays of pages where words exist
-    const arrs = await Promise.all(
-      wordsWithoutStopWords.map(
-        async (word) => (await this.storage.getWord(word.toLowerCase())) || []
-      )
+    const arrs = wordsWithoutStopWords.map((word) =>
+      this.storage.getWordIterator(word.toLowerCase())
     );
-
     /**
      * Checks if at least one quote exist on page
      * @param pageId
      */
-    const isQuoteOnPage = (pageId: number) => {
+    const isQuoteOnPage = async (pageId: number) => {
       if (quotes.length === 0) return true;
       const page = this.pages[pageId];
       for (let i = 0; i < quotes.length; i += 2) {
         const quotedWords = words.slice(quotes[i], quotes[i + 1]);
-        if (this.isAdjecentWords(quotedWords, page)) return true;
+        if (await this.isAdjecentWords(quotedWords, page)) return true;
       }
       return false;
     };
 
     // intersect arrays to get all page where all words exist
     const pagesWithWords = this.uniqueArr(
-      this.intersect(arrs, 100, isQuoteOnPage)
+      await this.intersect(arrs, 100, isQuoteOnPage)
     );
 
     this.rankPages(wordsWithoutStopWords, pagesWithWords);
 
-    return pagesWithWords.map((pageId) => {
-      const page = this.pages[pageId];
-      return {
-        ingress: this.constructIngress(words, quotes, page),
-        url: page.url,
-      };
-    });
+    return await Promise.all(
+      pagesWithWords.map(async (pageId) => {
+        const page = this.pages[pageId];
+        return {
+          ingress: await this.constructIngress(words, quotes, page),
+          url: page.url,
+        };
+      })
+    );
   }
 
   private rankPages(words: string[], pages: number[]) {
@@ -218,7 +217,7 @@ export class Engine {
    * @param words
    * @param page
    */
-  private isAdjecentWords(words: string[], page: Page): boolean {
+  private async isAdjecentWords(words: string[], page: Page): Promise<boolean> {
     const indices = words.map((word) => page.index[word.toLowerCase()]);
     return this.isWordIndicesAdjecent(indices);
   }
@@ -227,22 +226,31 @@ export class Engine {
    * Given multiple arrays of numbers, are there numbers which in each arr which come after each others
    * @param indexArrs
    */
-  private isWordIndicesAdjecent(indexArrs: number[][]) {
-    return this.adjecentWordIndicesIntersection(indexArrs).length > 0;
+  private async isWordIndicesAdjecent(indexArrs: number[][]) {
+    return (await this.adjecentWordIndicesIntersection(indexArrs)).length > 0;
   }
 
   /**
    * Word indices which intersections (first word index)
    * @param indexArrs
    */
-  private adjecentWordIndicesIntersection(indexArrs: number[][]): number[] {
+  private adjecentWordIndicesIntersection(
+    indexArrs: number[][]
+  ): Promise<number[]> {
     // shift words according to index
     // [[12,13,14]] => [[12,12,12]] (=true, they are adjectent, next to each other)
     const indicesEqualized = indexArrs.map((wordIndices, i) =>
       wordIndices.map((ind) => ind - i)
     );
 
-    return this.intersect(indicesEqualized, 1);
+    const iterators = indicesEqualized.map((index) =>
+      (async function* get(): AsyncIterableIterator<number> {
+        let i = 0;
+        while (i < index.length) yield index[i++];
+      })()
+    );
+
+    return this.intersect(iterators, 1);
   }
 
   /**
@@ -250,11 +258,11 @@ export class Engine {
    * @param words searched words
    * @param index page index
    */
-  private constructIngress(
+  private async constructIngress(
     words: string[],
     quotes: number[],
     page: Page
-  ): string {
+  ): Promise<string> {
     /**
      * Push word att index to ingress
      * @param ingress ingress to append to
@@ -283,7 +291,7 @@ export class Engine {
     let quotedIndices: number[][] = [];
     for (let i = 0; i < quotes.length; i += 2) {
       const qIndices = indices.slice(quotes[i], quotes[i + 1]);
-      const intersection = this.adjecentWordIndicesIntersection(qIndices);
+      const intersection = await this.adjecentWordIndicesIntersection(qIndices);
       for (let j = 0; j < qIndices.length - 1; j++)
         intersection.push(intersection[j] + 1);
       quotedIndices.push(intersection);
@@ -349,38 +357,44 @@ export class Engine {
    * @param maxCount
    * @param shouldBeAdded - if defined, will be required to return true to add value to intersection result list
    */
-  private intersect(
-    arrs: number[][],
+  private async intersect(
+    arrs: AsyncIterableIterator<number>[],
     maxCount: number,
-    shouldBeAdded?: (val: number) => boolean
-  ): number[] {
-    if (arrs.length === 0) return [];
-    if (arrs.length === 1) return arrs[0];
+    shouldBeAdded?: (val: number) => Promise<boolean>
+  ): Promise<number[]> {
     const result: number[] = [];
-    let indices = new Array(arrs.length).fill(0);
-    while (result.length < maxCount) {
-      let vals: number[] = [];
-
-      // fill vals with next values
-      for (let i = 0; i < arrs.length; i++) {
-        const ind = indices[i];
-        if (ind >= arrs[i].length) return result;
-        vals.push(arrs[i][ind]);
+    if (arrs.length === 0) return [];
+    if (arrs.length === 1) {
+      for await (let val of arrs[0]) {
+        if (result.length >= maxCount) break;
+        result.push(val);
       }
+      return result;
+    }
+    let values: number[] = [];
 
+    for (let i = 0; i < arrs.length; i++) {
+      const next = await arrs[i].next();
+      if (next.done) return result;
+      values.push(next.value);
+    }
+
+    while (result.length < maxCount) {
       // if all equal, they intersect
-      if (this.isAllEqual(vals)) {
+      if (this.isAllEqual(values)) {
         let add = false;
         if (shouldBeAdded) {
-          if (shouldBeAdded(vals[0])) add = true;
+          if (await shouldBeAdded(values[0])) add = true;
         } else add = true;
-        if (add) result.push(vals[0]);
+        if (add) result.push(values[0]);
       }
 
       // which arr to increase index
-      const minValue = Math.min(...vals);
-      const arrIndexWithSmallestValue = vals.indexOf(minValue);
-      indices[arrIndexWithSmallestValue] += 1;
+      const minValue = Math.min(...values);
+      const arrIndexWithSmallestValue = values.indexOf(minValue);
+      const next = await arrs[arrIndexWithSmallestValue].next();
+      if (next.done) break;
+      values[arrIndexWithSmallestValue] = next.value;
     }
     return result;
   }
