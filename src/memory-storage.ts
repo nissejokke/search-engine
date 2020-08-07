@@ -1,4 +1,4 @@
-import { Storage } from './engine';
+import { Storage, Page } from './engine';
 
 export class MemoryStorage implements Storage {
   /**
@@ -9,8 +9,26 @@ export class MemoryStorage implements Storage {
    * }
    */
   index: Record<string, number[]>;
+  /**
+   * page id to pages index
+   * Example: {
+   *    1: {
+   *        url: 'https://en.wikipedia.org/wiki/planet',
+   *        words: ['A', 'planet', 'is', 'an', 'astronomical', 'body', 'orbiting', '.']
+   *        index: {
+   *            'a': [0],
+   *            'gas': [44,22],
+   *            'giant': [89, 99]
+   *        },
+   *
+   *    }
+   * }
+   */
+  pages: Record<number, Page>;
+
   constructor() {
     this.index = {};
+    this.pages = {};
   }
 
   async *getWordIterator(word: string): AsyncIterableIterator<number> {
@@ -26,5 +44,18 @@ export class MemoryStorage implements Storage {
   }
   async addWord(word: string, pageId: number): Promise<void> {
     this.index[word].push(pageId);
+  }
+
+  async initPage(pageId: number, page: Page): Promise<void> {
+    const { url, words, index } = page;
+    this.pages[pageId] = {
+      url,
+      words,
+      index,
+    };
+  }
+
+  async getPage(pageId: number): Promise<Page> {
+    return this.pages[pageId];
   }
 }

@@ -5,6 +5,13 @@ export interface Storage {
   initWord: (word: string) => Promise<void>;
   resetWord: (word: string) => Promise<void>;
   addWord: (word: string, pageId: number) => Promise<void>;
+  initPage: (pageId: number, page: Page) => Promise<void>;
+  getPage: (pageId: number) => Promise<Page>;
+  // addPageWord: (
+  //   pageId: number,
+  //   word: string,
+  //   wordIndex: number
+  // ) => Promise<void>;
 }
 
 export interface SearchResult {
@@ -23,22 +30,6 @@ export interface Page {
 
 export class Engine {
   /**
-   * page id to pages index
-   * Example: {
-   *    1: {
-   *        url: 'https://en.wikipedia.org/wiki/planet',
-   *        words: ['A', 'planet', 'is', 'an', 'astronomical', 'body', 'orbiting', '.']
-   *        index: {
-   *            'a': [0],
-   *            'gas': [44,22],
-   *            'giant': [89, 99]
-   *        },
-   *
-   *    }
-   * }
-   */
-  pages: Record<number, Page>;
-  /**
    * Url to page id
    * Example: {
    *    'https://en.wikipedia.org/wiki/planet': 1
@@ -56,9 +47,8 @@ export class Engine {
   stopWords: Record<string, boolean>;
 
   constructor(public storage: Storage = new MemoryStorage()) {
-    this.pages = {};
     this.urlToPage = {};
-    this.seed = 0;
+    this.seed = 100; // so that page files can be broken up in directories with two digits
     this.stopWords = {
       a: true,
       an: true,
@@ -85,15 +75,10 @@ export class Engine {
     const pageKey = `site:${url}`;
     const { words } = this.toWords(text);
 
-    if (!this.urlToPage[url]) {
-      this.urlToPage[url] = this.seed;
-      this.pages[this.seed] = {
-        url,
-        words,
-        index: {},
-      };
-      await this.storage.initWord(pageKey);
-    }
+    if (this.urlToPage[url]) throw new Error('page already in index');
+
+    this.urlToPage[url] = this.seed;
+    await this.storage.initWord(pageKey);
     await this.storage.addWord(pageKey, this.seed);
 
     // word index
@@ -108,13 +93,15 @@ export class Engine {
     );
 
     // page index
+    const pageIndex: Record<string, number[]> = {};
     words.forEach((word, index) => {
       if (!word) return;
-      const pageIndex = this.pages[this.seed].index;
       const wordLower = word.toLowerCase();
       if (!pageIndex[wordLower]) pageIndex[wordLower] = [];
       if ((pageIndex[wordLower] as any).push) pageIndex[wordLower].push(index);
     });
+
+    await this.storage.initPage(this.seed, { url, words, index: pageIndex });
 
     this.seed += 1;
   }
@@ -139,7 +126,7 @@ export class Engine {
      */
     const isQuoteOnPage = async (pageId: number) => {
       if (quotes.length === 0) return true;
-      const page = this.pages[pageId];
+      const page = await this.storage.getPage(pageId);
       for (let i = 0; i < quotes.length; i += 2) {
         const quotedWords = words.slice(quotes[i], quotes[i + 1]);
         if (await this.isAdjecentWords(quotedWords, page)) return true;
@@ -152,11 +139,14 @@ export class Engine {
       await this.intersect(arrs, 100, isQuoteOnPage)
     );
 
-    this.rankPages(wordsWithoutStopWords, pagesWithWords);
+    let sortedPages = await this.rankPages(
+      wordsWithoutStopWords,
+      pagesWithWords
+    );
 
     return await Promise.all(
-      pagesWithWords.map(async (pageId) => {
-        const page = this.pages[pageId];
+      sortedPages.map(async (pageId) => {
+        const page = await this.storage.getPage(pageId);
         return {
           ingress: await this.constructIngress(words, quotes, page),
           url: page.url,
@@ -165,7 +155,7 @@ export class Engine {
     );
   }
 
-  private rankPages(words: string[], pages: number[]) {
+  private async rankPages(words: string[], pages: number[]): Promise<number[]> {
     const indicesForWord = (word: string, page: Page) =>
       page.index[word.toLowerCase()];
 
@@ -173,12 +163,16 @@ export class Engine {
      * Is words in title
      * @param pageId
      */
-    const titleEqual = (pageId: number) =>
-      words.filter((word, index) => {
-        const indices = indicesForWord(word, this.pages[pageId]);
-        const equals = indices[0] === index;
-        return equals;
-      }).length === words.length;
+    const titleEqual = async (pageId: number): Promise<boolean> => {
+      const page = await this.storage.getPage(pageId);
+      return (
+        words.filter((word, index) => {
+          const indices = indicesForWord(word, page);
+          const equals = indices[0] === index;
+          return equals;
+        }).length === words.length
+      );
+    };
 
     /**
      * Is words is in url
@@ -194,16 +188,24 @@ export class Engine {
       );
     };
 
-    const getScore = (pageId: number): number => {
+    const getScore = async (pageId: number): Promise<number> => {
       let score = 0;
-      if (titleEqual(pageId)) score += 10;
-      if (urlMatch(this.pages[pageId].url)) score += 1;
+      if (await titleEqual(pageId)) score += 10;
+      if (urlMatch((await this.storage.getPage(pageId)).url)) score += 1;
       return score;
     };
 
+    // calc scores
+
+    let scores: Record<number, number> = {};
+    for (let pageId of pages) {
+      const score = await getScore(pageId);
+      scores[pageId] = score;
+    }
+
     const sorted = pages.sort((pageA, pageB) => {
-      let scoreA = getScore(pageA);
-      let scoreB = getScore(pageB);
+      let scoreA = scores[pageA];
+      let scoreB = scores[pageB];
 
       if (scoreA === scoreB) return pageA - pageB; // sort on pageId, lower pages is better
       if (scoreB > scoreA) return 1;
