@@ -92,7 +92,7 @@ export class Engine {
         words,
         index: {},
       };
-      await this.storage.resetWord(pageKey);
+      await this.storage.initWord(pageKey);
     }
     await this.storage.addWord(pageKey, this.seed);
 

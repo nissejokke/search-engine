@@ -1,9 +1,10 @@
 /// <reference types="./@types/xml-stream" />
 
-import fs from 'fs';
+import fs from 'fs-extra';
 import path from 'path';
 import XmlStream from 'xml-stream';
 import { Engine } from './engine';
+import { FileStorage } from './file-storage';
 
 // Create a file stream and pass it to XmlStream
 function parse(
@@ -46,13 +47,19 @@ function parse(
   });
 }
 
+const dir = './.index';
+if (!fs.existsSync(dir)) {
+  fs.mkdirSync(dir);
+}
+
 let count = 0;
-const engine = new Engine();
+const engine = new Engine(new FileStorage('./.index/'));
 const max = 5000;
 let skipped = 0;
 
 (async () => {
   try {
+    //if (!(await fs.pathExists(dir)))
     await parse('utf8', async (item) => {
       const skip =
         !item.abstract ||
