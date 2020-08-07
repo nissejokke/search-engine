@@ -5,13 +5,12 @@ export interface Storage {
   initWord: (word: string) => Promise<void>;
   resetWord: (word: string) => Promise<void>;
   addWord: (word: string, pageId: number) => Promise<void>;
+
   initPage: (pageId: number, page: Page) => Promise<void>;
   getPage: (pageId: number) => Promise<Page>;
-  // addPageWord: (
-  //   pageId: number,
-  //   word: string,
-  //   wordIndex: number
-  // ) => Promise<void>;
+
+  getUrlToPage: (url: string) => Promise<number | undefined>;
+  setUrlToPage: (url: string, pageId: number) => Promise<void>;
 }
 
 export interface SearchResult {
@@ -30,13 +29,6 @@ export interface Page {
 
 export class Engine {
   /**
-   * Url to page id
-   * Example: {
-   *    'https://en.wikipedia.org/wiki/planet': 1
-   * }
-   */
-  urlToPage: Record<string, number>;
-  /**
    * Page seed
    */
   seed: number;
@@ -47,7 +39,6 @@ export class Engine {
   stopWords: Record<string, boolean>;
 
   constructor(public storage: Storage = new MemoryStorage()) {
-    this.urlToPage = {};
     this.seed = 100; // so that page files can be broken up in directories with two digits
     this.stopWords = {
       a: true,
@@ -75,9 +66,10 @@ export class Engine {
     const pageKey = `site:${url}`;
     const { words } = this.toWords(text);
 
-    if (this.urlToPage[url]) throw new Error('page already in index');
+    if (await this.storage.getUrlToPage(url))
+      throw new Error('page already in index');
 
-    this.urlToPage[url] = this.seed;
+    await this.storage.setUrlToPage(url, this.seed);
     await this.storage.initWord(pageKey);
     await this.storage.addWord(pageKey, this.seed);
 
@@ -116,10 +108,6 @@ export class Engine {
       (word) => !this.isStopWord(word)
     );
 
-    // arrays of pages where words exist
-    const arrs = wordsWithoutStopWords.map((word) =>
-      this.storage.getWordIterator(word.toLowerCase())
-    );
     /**
      * Checks if at least one quote exist on page
      * @param pageId
@@ -133,6 +121,11 @@ export class Engine {
       }
       return false;
     };
+
+    // arrays of pages where words exist
+    const arrs = wordsWithoutStopWords.map((word) =>
+      this.storage.getWordIterator(word.toLowerCase())
+    );
 
     // intersect arrays to get all page where all words exist
     const pagesWithWords = this.uniqueArr(

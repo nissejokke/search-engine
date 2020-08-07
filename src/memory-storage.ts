@@ -25,10 +25,18 @@ export class MemoryStorage implements Storage {
    * }
    */
   pages: Record<number, Page>;
+  /**
+   * Url to page id
+   * Example: {
+   *    'https://en.wikipedia.org/wiki/planet': 1
+   * }
+   */
+  urlToPage: Record<string, number>;
 
   constructor() {
     this.index = {};
     this.pages = {};
+    this.urlToPage = {};
   }
 
   async *getWordIterator(word: string): AsyncIterableIterator<number> {
@@ -57,5 +65,13 @@ export class MemoryStorage implements Storage {
 
   async getPage(pageId: number): Promise<Page> {
     return this.pages[pageId];
+  }
+
+  async getUrlToPage(url: string): Promise<number> {
+    return this.urlToPage[url];
+  }
+
+  async setUrlToPage(url: string, pageId: number): Promise<void> {
+    this.urlToPage[url] = pageId;
   }
 }

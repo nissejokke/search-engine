@@ -14,15 +14,19 @@ export class FileStorage implements Storage {
   constructor(public indexPath: string) {}
 
   async *getWordIterator(word: string): AsyncIterableIterator<number> {
-    const fileStream = fs.createReadStream(this.getWordFilename(word));
+    try {
+      const fileStream = await this.createReadStreamSafe(
+        this.getWordFilename(word)
+      );
 
-    const rl = readline.createInterface({
-      input: fileStream,
-      crlfDelay: Infinity,
-    });
-    for await (let line of rl) {
-      yield parseInt(line);
-    }
+      const rl = readline.createInterface({
+        input: fileStream,
+        crlfDelay: Infinity,
+      });
+      for await (let line of rl) {
+        yield parseInt(line);
+      }
+    } catch (err) {}
   }
   async initWord(word: string): Promise<void> {
     if (!(await this.wordExists(word))) await this.resetWord(word);
@@ -37,6 +41,15 @@ export class FileStorage implements Storage {
       pageId.toString() + '\n',
       'utf-8'
     );
+  }
+
+  createReadStreamSafe(filename: string): Promise<fs.ReadStream> {
+    return new Promise((resolve, reject) => {
+      const fileStream = fs.createReadStream(filename);
+      fileStream.on('error', reject).on('open', () => {
+        resolve(fileStream);
+      });
+    });
   }
 
   private getWordFilename(word: string): string {
@@ -76,5 +89,27 @@ export class FileStorage implements Storage {
       '/pages/',
       filename.substring(0, 2) + '/' + filename.substring(2)
     );
+  }
+
+  // url to page
+
+  async getUrlToPage(url: string): Promise<number | undefined> {
+    try {
+      return await fs.readJson(this.getUrlToPageFilename(url));
+    } catch (err) {
+      return undefined;
+    }
+  }
+
+  async setUrlToPage(url: string, pageId: number): Promise<void> {
+    await fs.ensureFile(this.getUrlToPageFilename(url));
+    await fs.writeFile(this.getUrlToPageFilename(url), JSON.stringify(pageId), {
+      encoding: 'utf-8',
+    });
+  }
+
+  private getUrlToPageFilename(url: string) {
+    const filename = url.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    return path.join(this.indexPath, '/url-to-page/', filename);
   }
 }

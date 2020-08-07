@@ -54,11 +54,13 @@ if (!fs.existsSync(dir)) {
 
 let count = 0;
 const engine = new Engine(new FileStorage('./.index/'));
-const max = 5000;
+const max = 50;
 let skipped = 0;
 
 (async () => {
   try {
+    await fs.remove(dir);
+
     //if (!(await fs.pathExists(dir)))
     await parse('utf8', async (item) => {
       const skip =
