@@ -41,7 +41,7 @@ function parse(
 
 let count = 0;
 const engine = new Engine();
-const max = 5000;
+const max = 10000;
 let skipped = 0;
 
 (async () => {

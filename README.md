@@ -2,6 +2,10 @@
 
 Simple search engine with focus on performance.
 
+- Search single or multiple words
+- Quotes to match exact
+- Ranking on title and url
+
 Example:
 
 ```typescript

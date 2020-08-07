@@ -227,10 +227,11 @@ test('should get results', () => {
   expect(result[5].ingress).toContain('"CARL FrieDricH"');
 });
 
-describe('rank', () => {
+describe('Rank', () => {
   let engine: Engine;
   beforeEach(() => {
     engine = new Engine();
+    // hackapedia articles is not as good as wikipedia, they have not as nice urls
     engine.add({
       text: `Process - A process is series or set of activities that interact to 
       produce a result; it may occur once-only or be recurrent 

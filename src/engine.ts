@@ -3,18 +3,18 @@ export interface SearchResult {
   url: string;
 }
 
-export interface Site {
+export interface Page {
   url: string;
   words: string[];
   /**
-   * Word index for site
+   * Word index for page
    */
   index: Record<string, number[]>;
 }
 
 export class Engine {
   /**
-   * Word to site index
+   * Word to page index
    * Example: {
    *    'planet': [1],
    *    'giant: [1],
@@ -22,7 +22,7 @@ export class Engine {
    */
   index: Record<string, number[]>;
   /**
-   * Site id to sites index
+   * page id to pages index
    * Example: {
    *    1: {
    *        url: 'https://en.wikipedia.org/wiki/planet',
@@ -36,16 +36,16 @@ export class Engine {
    *    }
    * }
    */
-  site: Record<number, Site>;
+  pages: Record<number, Page>;
   /**
-   * Url to site id
+   * Url to page id
    * Example: {
    *    'https://en.wikipedia.org/wiki/planet': 1
    * }
    */
-  urlToSite: Record<string, number>;
+  urlToPage: Record<string, number>;
   /**
-   * Site seed
+   * Page seed
    */
   seed: number;
 
@@ -56,8 +56,8 @@ export class Engine {
 
   constructor() {
     this.index = {};
-    this.site = {};
-    this.urlToSite = {};
+    this.pages = {};
+    this.urlToPage = {};
     this.seed = 0;
     this.stopWords = {
       a: true,
@@ -82,19 +82,19 @@ export class Engine {
    * @param param0
    */
   add({ text, url }: { text: string; url: string }) {
-    const siteKey = `site:${url}`;
+    const pageKey = `site:${url}`;
     const { words } = this.toWords(text);
 
-    if (!this.urlToSite[url]) {
-      this.urlToSite[url] = this.seed;
-      this.site[this.seed] = {
+    if (!this.urlToPage[url]) {
+      this.urlToPage[url] = this.seed;
+      this.pages[this.seed] = {
         url,
         words,
         index: {},
       };
-      this.index[siteKey] = [];
+      this.index[pageKey] = [];
     }
-    this.index[siteKey].push(this.seed);
+    this.index[pageKey].push(this.seed);
 
     // word index
     words
@@ -109,13 +109,13 @@ export class Engine {
         this.index[word].push(this.seed);
       });
 
-    // site index
+    // page index
     words.forEach((word, index) => {
       if (!word) return;
-      const siteIndex = this.site[this.seed].index;
+      const pageIndex = this.pages[this.seed].index;
       const wordLower = word.toLowerCase();
-      if (!siteIndex[wordLower]) siteIndex[wordLower] = [];
-      if ((siteIndex[wordLower] as any).push) siteIndex[wordLower].push(index);
+      if (!pageIndex[wordLower]) pageIndex[wordLower] = [];
+      if ((pageIndex[wordLower] as any).push) pageIndex[wordLower].push(index);
     });
 
     this.seed += 1;
@@ -131,52 +131,52 @@ export class Engine {
       (word) => !this.isStopWord(word)
     );
 
-    // arrays of sites where words exist
+    // arrays of pages where words exist
     const arrs = wordsWithoutStopWords.map(
       (word) => this.index[word.toLowerCase()] || []
     );
 
     /**
-     * Checks if at least one quote exist on site
-     * @param siteId
+     * Checks if at least one quote exist on page
+     * @param pageId
      */
-    const isQuoteOnSite = (siteId: number) => {
+    const isQuoteOnPage = (pageId: number) => {
       if (quotes.length === 0) return true;
-      const site = this.site[siteId];
+      const page = this.pages[pageId];
       for (let i = 0; i < quotes.length; i += 2) {
         const quotedWords = words.slice(quotes[i], quotes[i + 1]);
-        if (this.isAdjecentWords(quotedWords, site)) return true;
+        if (this.isAdjecentWords(quotedWords, page)) return true;
       }
       return false;
     };
 
-    // intersect arrays to get all site where all words exist
-    const sitesWithWords = this.uniqueArr(
-      this.intersect(arrs, 100, isQuoteOnSite)
+    // intersect arrays to get all page where all words exist
+    const pagesWithWords = this.uniqueArr(
+      this.intersect(arrs, 100, isQuoteOnPage)
     );
 
-    this.rankSites(wordsWithoutStopWords, sitesWithWords);
+    this.rankPages(wordsWithoutStopWords, pagesWithWords);
 
-    return sitesWithWords.map((siteId) => {
-      const site = this.site[siteId];
+    return pagesWithWords.map((pageId) => {
+      const page = this.pages[pageId];
       return {
-        ingress: this.constructIngress(words, quotes, site),
-        url: site.url,
+        ingress: this.constructIngress(words, quotes, page),
+        url: page.url,
       };
     });
   }
 
-  private rankSites(words: string[], sites: number[]) {
-    const indicesForWord = (word: string, site: Site) =>
-      site.index[word.toLowerCase()];
+  private rankPages(words: string[], pages: number[]) {
+    const indicesForWord = (word: string, page: Page) =>
+      page.index[word.toLowerCase()];
 
     /**
      * Is words in title
-     * @param siteId
+     * @param pageId
      */
-    const titleEqual = (siteId: number) =>
+    const titleEqual = (pageId: number) =>
       words.filter((word, index) => {
-        const indices = indicesForWord(word, this.site[siteId]);
+        const indices = indicesForWord(word, this.pages[pageId]);
         const equals = indices[0] === index;
         return equals;
       }).length === words.length;
@@ -195,18 +195,18 @@ export class Engine {
       );
     };
 
-    const getScore = (siteId: number): number => {
+    const getScore = (pageId: number): number => {
       let score = 0;
-      if (titleEqual(siteId)) score += 10;
-      if (urlMatch(this.site[siteId].url)) score += 1;
+      if (titleEqual(pageId)) score += 10;
+      if (urlMatch(this.pages[pageId].url)) score += 1;
       return score;
     };
 
-    const sorted = sites.sort((siteA, siteB) => {
-      let scoreA = getScore(siteA);
-      let scoreB = getScore(siteB);
+    const sorted = pages.sort((pageA, pageB) => {
+      let scoreA = getScore(pageA);
+      let scoreB = getScore(pageB);
 
-      if (scoreA === scoreB) return siteA - siteB;
+      if (scoreA === scoreB) return pageA - pageB; // sort on pageId, lower pages is better
       if (scoreB > scoreA) return 1;
       return -1;
     });
@@ -214,12 +214,12 @@ export class Engine {
   }
 
   /**
-   * Are given words in order in given site? For quote search.
+   * Are given words in order in given page? For quote search.
    * @param words
-   * @param site
+   * @param page
    */
-  private isAdjecentWords(words: string[], site: Site): boolean {
-    const indices = words.map((word) => site.index[word.toLowerCase()]);
+  private isAdjecentWords(words: string[], page: Page): boolean {
+    const indices = words.map((word) => page.index[word.toLowerCase()]);
     return this.isWordIndicesAdjecent(indices);
   }
 
@@ -248,12 +248,12 @@ export class Engine {
   /**
    * Creates search result introduction text
    * @param words searched words
-   * @param index site index
+   * @param index page index
    */
   private constructIngress(
     words: string[],
     quotes: number[],
-    site: Site
+    page: Page
   ): string {
     /**
      * Push word att index to ingress
@@ -261,7 +261,7 @@ export class Engine {
      * @param wordIndex index of word
      */
     const pushAtIndex = (ingress: string[], wordIndex: number) => {
-      const word = site.words[wordIndex];
+      const word = page.words[wordIndex];
       if (word) ingress.push(word);
     };
 
@@ -276,7 +276,7 @@ export class Engine {
 
     // words to indices
     const indices = words
-      .map((word) => site.index[word.toLowerCase()])
+      .map((word) => page.index[word.toLowerCase()])
       .map((arr) => arr.filter((val) => Number.isInteger(val)));
 
     // get quoted indices first and keep them separate
