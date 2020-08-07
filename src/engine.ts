@@ -170,15 +170,44 @@ export class Engine {
     const indicesForWord = (word: string, site: Site) =>
       site.index[word.toLowerCase()];
 
+    /**
+     * Is words in title
+     * @param siteId
+     */
+    const titleEqual = (siteId: number) =>
+      words.filter((word, index) => {
+        const indices = indicesForWord(word, this.site[siteId]);
+        const equals = indices[0] === index;
+        return equals;
+      }).length === words.length;
+
+    /**
+     * Is words is in url
+     * @param url
+     */
+    const urlMatch = (url: string): boolean => {
+      return (
+        words.filter((word) => {
+          // prettier-ignore
+          const match = url.match(new RegExp('(?![\w\d])' + word + '(?![\w\d])', 'i'));
+          return Boolean(match);
+        }).length >= words.length
+      );
+    };
+
+    const getScore = (siteId: number): number => {
+      let score = 0;
+      if (titleEqual(siteId)) score += 10;
+      if (urlMatch(this.site[siteId].url)) score += 1;
+      return score;
+    };
+
     const sorted = sites.sort((siteA, siteB) => {
-      const indicesA = indicesForWord(words[0], this.site[siteA]);
-      const indicesB = indicesForWord(words[0], this.site[siteB]);
+      let scoreA = getScore(siteA);
+      let scoreB = getScore(siteB);
 
-      const titleA = indicesA[0] === 0;
-      const titleB = indicesB[0] === 0;
-
-      if (titleA === titleB) return siteA - siteB;
-      if (titleB) return 1;
+      if (scoreA === scoreB) return siteA - siteB;
+      if (scoreB > scoreA) return 1;
       return -1;
     });
     return sorted;

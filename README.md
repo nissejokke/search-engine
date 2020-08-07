@@ -126,5 +126,7 @@ Result in 1.021ms
 - [x] Search quotes
 - [x] Stopwords
 - [ ] Stemming
-- [ ] Ranking of results
+- [x] Ranking of results, higher rank if searched words is in:
+  - [x] Title
+  - [x] Url
 - [ ] Store index as files

@@ -228,27 +228,52 @@ test('should get results', () => {
 });
 
 describe('rank', () => {
-  test('Should rank based on title', () => {
-    let engine: Engine = new Engine();
+  let engine: Engine;
+  beforeEach(() => {
+    engine = new Engine();
     engine.add({
-      text: `Comet - A comet is an icy, small Solar System body that, 
-            when passing close to the Sun, warms and begins to 
-            release gases, a process called outgassing`,
-      url: 'https://en.wikipedia.org/wiki/Comet',
-    });
-    engine.add({
-      text: `Assembly line - An assembly line is a manufacturing process 
-            (often called a progressive assembly)`,
-      url: 'https://en.wikipedia.org/wiki/Assembly_line',
+      text: `Process - A process is series or set of activities that interact to 
+      produce a result; it may occur once-only or be recurrent 
+      or periodic.`,
+      url: 'https://hackapedia.org/?id=12345',
     });
     engine.add({
       text: `Process - A process is series or set of activities that interact to 
-            produce a result; it may occur once-only or be recurrent 
-            or periodic.`,
+      produce a result; it may occur once-only or be recurrent 
+      or periodic.`,
       url: 'https://en.wikipedia.org/wiki/Process',
     });
-
+    engine.add({
+      text: `Haber - Haber is a surname of German origin. The meaning in 
+      old German is "oat". The cereal is now in German called "Hafer".
+      The process of making is ....`,
+      url: 'https://en.wikipedia.org/wiki/Haber',
+    });
+    engine.add({
+      text: `Haber process - The Haber process,[1] also called the Haber–Bosch process, 
+            is an artificial nitrogen fixation process and is the main 
+            industrial procedure for the production of ammonia today.`,
+      url: 'https://hackapedia.org/?id=4567&title=Haber',
+    });
+    engine.add({
+      text: `Haber process - The Haber process,[1] also called the Haber–Bosch process, 
+            is an artificial nitrogen fixation process and is the main 
+            industrial procedure for the production of ammonia today.`,
+      url: 'https://en.wikipedia.org/wiki/Haber_process',
+    });
+  });
+  test('Process', () => {
     const result = engine.search('process');
     expect(result[0].url).toBe('https://en.wikipedia.org/wiki/Process');
+  });
+
+  test('Haber', () => {
+    const result = engine.search('haber');
+    expect(result[0].url).toBe('https://en.wikipedia.org/wiki/Haber');
+  });
+
+  test('Haber process', () => {
+    const result = engine.search('haber process');
+    expect(result[0].url).toBe('https://en.wikipedia.org/wiki/Haber_process');
   });
 });
