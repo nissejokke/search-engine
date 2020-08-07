@@ -2,7 +2,7 @@ import { Engine } from './engine';
 
 describe('Planets', () => {
   let engine: Engine;
-  beforeEach(() => {
+  beforeEach(async () => {
     /*
             urlToSite: {
                 "/jupiter": 1
@@ -28,7 +28,7 @@ describe('Planets', () => {
             }
         */
     engine = new Engine();
-    engine.add({
+    await engine.add({
       text: `Jupiter is the fifth planet from the Sun and the largest in the 
       Solar System. It is a gas giant with a mass one-thousandth that of the Sun, 
       but two-and-a-half times that of all the other planets in the Solar System 
@@ -40,7 +40,7 @@ describe('Planets', () => {
       in the night sky after the Moon and Venus.`,
       url: 'https://en.wikipedia.org/wiki/Jupiter',
     });
-    engine.add({
+    await engine.add({
       text: `Saturn is the sixth planet from the Sun and the second-largest in the 
         Solar System, after Jupiter. It is a gas giant with an average radius 
         of about nine times that of Earth.[18][19] It only has one-eighth the 
@@ -51,84 +51,84 @@ describe('Planets', () => {
       url: 'https://en.wikipedia.org/wiki/Saturn',
     });
   });
-  test('Single hit', () => {
-    const result = engine.search('brightest');
+  test('Single hit', async () => {
+    const result = await engine.search('brightest');
     expect(result).toHaveLength(1);
     expect(result[0].url).toBe('https://en.wikipedia.org/wiki/Jupiter');
     expect(result[0].ingress).toContain('of the "brightest" objects visible');
     expect(result[0].ingress).toContain('the third "brightest" natural object');
   });
-  test('Two results', () => {
-    const result = engine.search('giant');
+  test('Two results', async () => {
+    const result = await engine.search('giant');
     expect(result).toHaveLength(2);
     expect(result[0].url).toBe('https://en.wikipedia.org/wiki/Jupiter');
     expect(result[1].url).toBe('https://en.wikipedia.org/wiki/Saturn');
     expect(result[0].ingress).toContain('gas "giant"');
     expect(result[1].ingress).toContain('gas "giant"');
   });
-  test('Multiple hits', () => {
-    const result = engine.search('Solar');
+  test('Multiple hits', async () => {
+    const result = await engine.search('Solar');
     expect(result).toHaveLength(2);
   });
-  test('Single adjecent words', () => {
-    const result = engine.search('ancient civilizations');
+  test('Single adjecent words', async () => {
+    const result = await engine.search('ancient civilizations');
     expect(result).toHaveLength(1);
     expect(result[0].url).toBe('https://en.wikipedia.org/wiki/Jupiter');
     expect(result[0].ingress).toBe(
       'known to "ancient civilizations" since before'
     );
   });
-  test('Single words', () => {
-    const result = engine.search('planet sixth');
+  test('Single words', async () => {
+    const result = await engine.search('planet sixth');
     expect(result).toHaveLength(1);
 
     expect(result[0].url).toBe('https://en.wikipedia.org/wiki/Saturn');
     expect(result[0].ingress).toBe('is the "sixth planet" from the');
   });
 
-  test('Quotes no matches', () => {
-    const result = engine.search('"planet sixth"');
+  test('Quotes no matches', async () => {
+    const result = await engine.search('"planet sixth"');
     expect(result).toHaveLength(0);
   });
 
-  test('Quotes one match', () => {
-    const result = engine.search('"after Jupiter"');
+  test('Quotes one match', async () => {
+    const result = await engine.search('"after Jupiter"');
     expect(result).toHaveLength(1);
     expect(result[0].url).toBe('https://en.wikipedia.org/wiki/Saturn');
     expect(result[0].ingress).toContain('after Jupiter');
   });
 
-  test('Quotes + suffix word', () => {
-    const result = engine.search('"from the Sun" Moon');
+  test('Quotes + suffix word', async () => {
+    const result = await engine.search('"from the Sun" Moon');
     expect(result).toHaveLength(1);
     expect(result[0].url).toBe('https://en.wikipedia.org/wiki/Jupiter');
     expect(result[0].ingress).toMatch(/"from the Sun".*?"Moon"/);
   });
 
-  test('Quotes + prefix word occuring after, incorrect case', () => {
-    const result = engine.search('moon "from the Sun"'); // moon incorrect case
+  test('Quotes + prefix word occuring after, incorrect case', async () => {
+    const result = await engine.search('moon "from the Sun"'); // moon incorrect case
     expect(result).toHaveLength(1);
     expect(result[0].url).toBe('https://en.wikipedia.org/wiki/Jupiter');
     expect(result[0].ingress).toMatch(/"from the Sun".*?"Moon"/);
   });
 
-  test('Quotes + prefix word ocurring first, incorrect case', () => {
-    const result = engine.search('fifth "from the sun"'); // sun incorrect case
+  test('Quotes + prefix word ocurring first, incorrect case', async () => {
+    const result = await engine.search('fifth "from the sun"'); // sun incorrect case
     expect(result).toHaveLength(1);
     expect(result[0].url).toBe('https://en.wikipedia.org/wiki/Jupiter');
     expect(result[0].ingress).toMatch(/"fifth".*"from the Sun"/);
   });
 
-  test('Quotes incorrect case', () => {
-    const result = engine.search('"moon and venus"'); // incorrect case
+  test('Quotes incorrect case', async () => {
+    const result = await engine.search('"moon and venus"'); // incorrect case
     expect(result).toHaveLength(1);
   });
 });
 
-test('Should not match', () => {
+test('Should not match', async () => {
   let engine: Engine;
   engine = new Engine();
-  engine.add({
+  await engine.add({
     text: `Petrochemicals (also known as petroleum distillates) are the 
             chemical products obtained from petroleum by refining. 
             Some chemical compounds made from petroleum are also obtained 
@@ -137,14 +137,14 @@ test('Should not match', () => {
     url: 'https://en.wikipedia.org/wiki/Petrochemical',
   });
 
-  const result = engine.search('from country he');
+  const result = await engine.search('from country he');
   expect(result).toHaveLength(0);
 });
 
-test('should get results', () => {
+test('should get results', async () => {
   let engine: Engine;
   engine = new Engine();
-  [
+  const pages = [
     {
       text: 'generalized by Friedrich Bessel are',
       url: 'https://en.wikipedia.org/wiki/Bessel_function',
@@ -214,11 +214,13 @@ test('should get results', () => {
       text: 'German mathematician "CARL FrieDricH" Gauss Richard',
       url: 'https://en.wikipedia.org/wiki/G._Waldo_Dunnington',
     },
-  ].forEach((text) => {
-    engine.add({ text: text.text, url: text.url });
-  });
+  ];
+  for (let i = 0; i < pages.length; i++) {
+    const text = pages[i];
+    await engine.add({ text: text.text, url: text.url });
+  }
 
-  const result = engine.search('"carl friedrich"');
+  const result = await engine.search('"carl friedrich"');
   expect(result).toHaveLength(6);
   expect(result[0].ingress).toContain('by "Carl Friedrich" Gauss in');
   expect(result[1].ingress).toContain(
@@ -229,52 +231,52 @@ test('should get results', () => {
 
 describe('Rank', () => {
   let engine: Engine;
-  beforeEach(() => {
+  beforeEach(async () => {
     engine = new Engine();
     // hackapedia articles is not as good as wikipedia, they have not as nice urls
-    engine.add({
+    await engine.add({
       text: `Process - A process is series or set of activities that interact to 
       produce a result; it may occur once-only or be recurrent 
       or periodic.`,
       url: 'https://hackapedia.org/?id=12345',
     });
-    engine.add({
+    await engine.add({
       text: `Process - A process is series or set of activities that interact to 
       produce a result; it may occur once-only or be recurrent 
       or periodic.`,
       url: 'https://en.wikipedia.org/wiki/Process',
     });
-    engine.add({
+    await engine.add({
       text: `Haber - Haber is a surname of German origin. The meaning in 
       old German is "oat". The cereal is now in German called "Hafer".
       The process of making is ....`,
       url: 'https://en.wikipedia.org/wiki/Haber',
     });
-    engine.add({
+    await engine.add({
       text: `Haber process - The Haber process,[1] also called the Haber–Bosch process, 
             is an artificial nitrogen fixation process and is the main 
             industrial procedure for the production of ammonia today.`,
       url: 'https://hackapedia.org/?id=4567&title=Haber',
     });
-    engine.add({
+    await engine.add({
       text: `Haber process - The Haber process,[1] also called the Haber–Bosch process, 
             is an artificial nitrogen fixation process and is the main 
             industrial procedure for the production of ammonia today.`,
       url: 'https://en.wikipedia.org/wiki/Haber_process',
     });
   });
-  test('Process', () => {
-    const result = engine.search('process');
+  test('Process', async () => {
+    const result = await engine.search('process');
     expect(result[0].url).toBe('https://en.wikipedia.org/wiki/Process');
   });
 
-  test('Haber', () => {
-    const result = engine.search('haber');
+  test('Haber', async () => {
+    const result = await engine.search('haber');
     expect(result[0].url).toBe('https://en.wikipedia.org/wiki/Haber');
   });
 
-  test('Haber process', () => {
-    const result = engine.search('haber process');
+  test('Haber process', async () => {
+    const result = await engine.search('haber process');
     expect(result[0].url).toBe('https://en.wikipedia.org/wiki/Haber_process');
   });
 });

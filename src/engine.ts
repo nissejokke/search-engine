@@ -1,3 +1,11 @@
+import { MemoryStorage } from './memory-storage';
+
+export interface Storage {
+  getWord: (word: string) => Promise<number[]>;
+  resetWord: (word: string) => Promise<void>;
+  addWord: (word: string, pageId: number) => Promise<void>;
+}
+
 export interface SearchResult {
   ingress: string;
   url: string;
@@ -13,14 +21,6 @@ export interface Page {
 }
 
 export class Engine {
-  /**
-   * Word to page index
-   * Example: {
-   *    'planet': [1],
-   *    'giant: [1],
-   * }
-   */
-  index: Record<string, number[]>;
   /**
    * page id to pages index
    * Example: {
@@ -54,8 +54,7 @@ export class Engine {
    */
   stopWords: Record<string, boolean>;
 
-  constructor() {
-    this.index = {};
+  constructor(public storage: Storage = new MemoryStorage()) {
     this.pages = {};
     this.urlToPage = {};
     this.seed = 0;
@@ -81,7 +80,7 @@ export class Engine {
    * Add text to index
    * @param param0
    */
-  add({ text, url }: { text: string; url: string }) {
+  async add({ text, url }: { text: string; url: string }): Promise<void> {
     const pageKey = `site:${url}`;
     const { words } = this.toWords(text);
 
@@ -92,22 +91,21 @@ export class Engine {
         words,
         index: {},
       };
-      this.index[pageKey] = [];
+      await this.storage.resetWord(pageKey);
     }
-    this.index[pageKey].push(this.seed);
+    await this.storage.addWord(pageKey, this.seed);
 
     // word index
-    words
-      .map((word) => word.toLowerCase())
-      .filter((word) => !this.isStopWord(word))
-      .forEach((word) => {
-        if (!this.index[word]) this.index[word] = [];
-        if (!Array.isArray(this.index[word])) return;
-
-        if (this.index[word].indexOf(this.seed) === -1) {
-        }
-        this.index[word].push(this.seed);
-      });
+    await Promise.all(
+      words
+        .map((word) => word.toLowerCase())
+        .filter((word) => !this.isStopWord(word))
+        .map(async (word) => {
+          const wordIndex = await this.storage.getWord(word);
+          if (!wordIndex) await this.storage.resetWord(word);
+          await this.storage.addWord(word, this.seed);
+        })
+    );
 
     // page index
     words.forEach((word, index) => {
@@ -125,15 +123,17 @@ export class Engine {
    * Free text search
    * @param text
    */
-  search(text: string): SearchResult[] {
+  async search(text: string): Promise<SearchResult[]> {
     const { words, quotes } = this.toWords(text);
     const wordsWithoutStopWords = words.filter(
       (word) => !this.isStopWord(word)
     );
 
     // arrays of pages where words exist
-    const arrs = wordsWithoutStopWords.map(
-      (word) => this.index[word.toLowerCase()] || []
+    const arrs = await Promise.all(
+      wordsWithoutStopWords.map(
+        async (word) => (await this.storage.getWord(word.toLowerCase())) || []
+      )
     );
 
     /**
@@ -466,9 +466,5 @@ export class Engine {
    */
   private isStopWord(word: string): boolean {
     return word.length < 2 || this.stopWords[word];
-  }
-
-  capitalizeFirstLetter(str: string) {
-    return str.substring(0, 1).toUpperCase() + str.substring(1);
   }
 }

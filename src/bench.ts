@@ -8,7 +8,11 @@ import { Engine } from './engine';
 // Create a file stream and pass it to XmlStream
 function parse(
   encoding: string,
-  onItem: (item: { title: string; url: string; abstract: string }) => boolean
+  onItem: (item: {
+    title: string;
+    url: string;
+    abstract: string;
+  }) => Promise<boolean>
 ) {
   return new Promise((resolve, reject) => {
     try {
@@ -16,12 +20,15 @@ function parse(
         path.join(__dirname, '../../../Downloads/enwiki-latest-abstract.xml')
       );
       const xml = new XmlStream(stream, encoding);
-      xml.on('endElement: doc', function (node: any) {
+      xml.on('endElement: doc', async function (node: any) {
         try {
-          if (!onItem(node)) {
-            xml.pause();
-            resolve();
-          }
+          xml.pause();
+          onItem(node)
+            .then((keepGoing) => {
+              if (keepGoing) xml.resume();
+              else resolve();
+            })
+            .catch((err) => reject(err));
         } catch (err) {
           reject(err);
         }
@@ -41,12 +48,12 @@ function parse(
 
 let count = 0;
 const engine = new Engine();
-const max = 10000;
+const max = 5000;
 let skipped = 0;
 
 (async () => {
   try {
-    await parse('utf8', (item) => {
+    await parse('utf8', async (item) => {
       const skip =
         !item.abstract ||
         !item.url ||
@@ -61,7 +68,7 @@ let skipped = 0;
         process.stdout.write('\b\b\b');
         process.stdout.write(Math.round((count * 100) / max).toString());
       }
-      engine.add({
+      await engine.add({
         text: item.title.replace('Wikipedia: ', '') + ' - ' + item.abstract,
         url: item.url,
       });
@@ -71,11 +78,10 @@ let skipped = 0;
 
     console.log('');
     console.log(engine.seed, 'pages loaded');
-    console.log(Object.keys(engine.index).length, 'words loaded');
     console.log(skipped, 'skipped');
     console.time();
 
-    const result = engine.search('philosophy psychology');
+    const result = await engine.search('philosophy psychology');
     console.log(result);
     console.log(result.length);
 
@@ -83,7 +89,7 @@ let skipped = 0;
     console.log('-----');
     console.time();
 
-    const result2 = engine.search('"carl friedrich" german');
+    const result2 = await engine.search('"carl friedrich" german');
     console.log(result2);
 
     console.timeEnd();
