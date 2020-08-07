@@ -136,14 +136,11 @@ export class Engine {
     );
 
     // intersect arrays to get all page where all words exist
-    const pagesWithWords = this.uniqueArr(
+    const pages = this.uniqueArr(
       await this.intersect(arrs, maxCount, isQuoteOnPage)
     );
 
-    let sortedPages = await this.rankPages(
-      wordsWithoutStopWords,
-      pagesWithWords
-    );
+    let sortedPages = await this.rankPages(wordsWithoutStopWords, pages);
 
     return await Promise.all(
       sortedPages.map(async (pageId) => {
@@ -156,6 +153,11 @@ export class Engine {
     );
   }
 
+  /**
+   * Rank pages on title and url
+   * @param words
+   * @param pages
+   */
   private async rankPages(words: string[], pages: number[]): Promise<number[]> {
     const indicesForWord = (word: string, page: Page) =>
       page.index[word.toLowerCase()];
@@ -221,7 +223,7 @@ export class Engine {
    * @param page
    */
   private async isAdjecentWords(words: string[], page: Page): Promise<boolean> {
-    const indices = words.map((word) => page.index[word.toLowerCase()]);
+    const indices = words.map((word) => page.index[word.toLowerCase()] || []);
     return this.isWordIndicesAdjecent(indices);
   }
 
@@ -287,7 +289,7 @@ export class Engine {
 
     // words to indices
     const indices = words
-      .map((word) => page.index[word.toLowerCase()])
+      .map((word) => page.index[word.toLowerCase()] || [])
       .map((arr) => arr.filter((val) => Number.isInteger(val)));
 
     // get quoted indices first and keep them separate

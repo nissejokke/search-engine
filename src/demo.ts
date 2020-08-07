@@ -9,6 +9,13 @@ import readline from 'readline';
 import colors from 'colors/safe';
 
 /**
+ * Usage:
+ * 1. Download https://dumps.wikimedia.org/enwiki/latest/enwiki-latest-abstract.xml.gz
+ * 2. Adjust url below to enwiki-latest-abstract.xml
+ * 3. npm run demo
+ */
+
+/**
  * Parse wiki abstracts
  * @param encoding
  * @param onItem
@@ -57,7 +64,7 @@ const dir = './.index';
 
 let count = 0;
 const engine = new Engine(new FileStorage(dir));
-const max = 5000;
+const max = 50000;
 let skipped = 0;
 
 (async () => {
@@ -65,7 +72,7 @@ let skipped = 0;
     //await fs.remove(dir);
 
     if (!(await fs.pathExists(dir))) {
-      console.log('creating index..');
+      console.log('Creating index..');
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir);
       }
@@ -85,6 +92,7 @@ let skipped = 0;
           process.stdout.write(
             Math.round((count * 100) / max).toString() + '%'
           );
+          //await new Promise((resolve) => setTimeout(resolve, 1000));
         }
         try {
           await engine.add({
@@ -101,7 +109,6 @@ let skipped = 0;
 
     console.log('');
     console.log(await engine.storage.getSeed(), 'pages loaded');
-    console.log('');
 
     const rl = readline.createInterface({
       input: process.stdin,
@@ -116,8 +123,9 @@ let skipped = 0;
       );
 
     while (true) {
+      console.log('');
       const query = await prompt();
-      console.time();
+      console.time('Query time');
       const r = await engine.search(query, 10);
       console.log();
       console.log(
@@ -127,7 +135,7 @@ let skipped = 0;
       );
       console.log('');
       console.log(r.length, 'results');
-      console.timeEnd();
+      console.timeEnd('Query time');
     }
   } catch (err) {
     console.error(err);
