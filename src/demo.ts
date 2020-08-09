@@ -65,7 +65,7 @@ const dir = './.index';
 
 let count = 0;
 const engine = new Engine(new BinaryFileStorage(dir));
-const max = 10;
+const max = 1000;
 let skipped = 0;
 
 (async () => {
@@ -129,7 +129,7 @@ let skipped = 0;
       console.log('');
       const query = await prompt();
       console.time('Query time');
-      const r = await engine.search(query, 10);
+      const r = await engine.search(query, 100);
       console.log();
       console.log(
         r

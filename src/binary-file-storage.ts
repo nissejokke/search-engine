@@ -26,26 +26,19 @@ export class BinaryFileStorage implements Storage {
   }
 
   async *getWordIterator(word: string): AsyncIterableIterator<number> {
-    // try {
-    //   const fileStream = await this.createReadStreamSafe(
-    //     this.getWordFilename(word)
-    //   );
-
-    //   const rl = readline.createInterface({
-    //     input: fileStream,
-    //     crlfDelay: Infinity,
-    //   });
-    //   for await (let line of rl) {
-    //     yield parseInt(line);
-    //   }
-    // } catch (err) {}
-
     let i = 0;
     const blockIndex = await this.getHashEntryBlockIndex(word);
-    const block = await this.getBlock(await this.getBlockOffset(blockIndex));
+    let block = await this.getBlock(await this.getBlockOffset(blockIndex));
     let siteId: number;
     do {
       siteId = block.readUInt32BE(i);
+      if (siteId === 4294967295) {
+        i += 4;
+        const nextBlock = block.readUInt32BE(i);
+        block = await this.getBlock(nextBlock);
+        i = 0;
+        continue;
+      }
       if (siteId > 0) yield siteId;
       i += 4;
     } while (siteId > 0);
@@ -59,46 +52,58 @@ export class BinaryFileStorage implements Storage {
       return;
     }
 
-    const block = await this.getBlockIndex();
-    await this.writeHashEntry(word, block, false);
+    const blockIndex = await this.getCurrentBlockIndex();
+    await this.writeHashEntry(word, blockIndex, false);
 
-    const blockOffset = await this.getBlockOffset(block);
-
-    // write empty block
-    fs.write(
-      await this.getFileDescriptor(),
-      Buffer.from(this.toBEInt32(0)),
-      undefined,
-      undefined,
-      blockOffset
-    );
-
-    // write block index
-    fs.write(
-      await this.getFileDescriptor(),
-      Buffer.from(this.toBEInt32(block + 1)),
-      undefined,
-      undefined,
-      0
-    );
+    await this.addBlock(blockIndex);
+    await this.writeBlockIndex(blockIndex + 1);
   }
   async resetWord(word: string): Promise<void> {
     await this.writeHashEntry(word, 0, true);
   }
   async addWord(word: string, pageId: number): Promise<void> {
-    const block = await this.getHashEntryBlockIndex(word);
-    const blockOffset = await this.getBlockOffset(block);
-    const blockEnding = await this.getBlockEndingBytes(blockOffset);
-    const data = Buffer.concat([
-      Buffer.from(this.toBEInt32(pageId)),
-      Buffer.from(this.toBEInt32(0)),
-    ]);
+    const blockIndex = await this.getHashEntryBlockIndex(word);
+    const blockOffset = await this.getBlockOffset(blockIndex);
+    const {
+      blockOffset: blockEndingOffset,
+      insertEnding,
+    } = await this.getBlockEndingOffset(blockOffset);
+    let data: Buffer;
+
+    if (insertEnding) {
+      const blockIndex = await this.getCurrentBlockIndex();
+      await this.addBlock(blockIndex);
+      await this.writeBlockIndex(blockIndex + 1);
+
+      data = Buffer.concat([
+        Buffer.from(this.toBEInt32(pageId)),
+        Buffer.from([0xff, 0xff, 0xff, 0xff]),
+        Buffer.from(this.toBEInt32(blockIndex)), // new block pointer
+      ]);
+    } else
+      data = Buffer.concat([
+        Buffer.from(this.toBEInt32(pageId)),
+        Buffer.from(this.toBEInt32(0)),
+      ]);
+
     await fs.write(
       await this.getFileDescriptor(),
       data,
       undefined,
       undefined,
-      blockOffset + blockEnding
+      blockEndingOffset
+    );
+  }
+
+  private async addBlock(blockIndex: number) {
+    const blockOffset = await this.getBlockOffset(blockIndex);
+    // write empty block
+    await fs.write(
+      await this.getFileDescriptor(),
+      Buffer.from(this.toBEInt32(0)),
+      undefined,
+      undefined,
+      blockOffset
     );
   }
 
@@ -120,22 +125,50 @@ export class BinaryFileStorage implements Storage {
     return buf;
   }
 
-  private async getBlockEndingBytes(blockOffset: number) {
-    const buf = await this.getBlock(blockOffset);
+  /**
+   * Given a block, find end of data of that block or other linked blocks
+   * @param blockOffset
+   */
+  private async getBlockEndingOffset(
+    blockOffset: number
+  ): Promise<{ blockOffset: number; insertEnding: boolean }> {
+    let buf = await this.getBlock(blockOffset);
     for (let i = 0; i < buf.length; i += 4) {
-      const val = buf.readUInt32BE(i);
-      if (val === 0) return i;
+      let val = buf.readUInt32BE(i);
+      if (val === 0)
+        return {
+          blockOffset: blockOffset + i,
+          insertEnding: this.blockSize - i * 4 < 12,
+        };
+      if (val === 4294967295) {
+        i += 4;
+        blockOffset = buf.readUInt32BE(i);
+        buf = await this.getBlock(blockOffset);
+        i = -4;
+      }
     }
+
     throw new Error('should not have ended up here');
   }
 
-  private async getBlockOffset(block: number) {
+  private async getBlockOffset(blockIndex: number) {
     const blockOffset =
-      this.headerSize + this.indexSize + block * this.blockSize;
+      this.headerSize + this.indexSize + blockIndex * this.blockSize;
     return blockOffset;
   }
 
-  private async getBlockIndex() {
+  private async writeBlockIndex(blockIndex: number) {
+    // write block index
+    await fs.write(
+      await this.getFileDescriptor(),
+      Buffer.from(this.toBEInt32(blockIndex)),
+      undefined,
+      undefined,
+      0
+    );
+  }
+
+  private async getCurrentBlockIndex() {
     const buf = Buffer.alloc(4);
     await fs.read(await this.getFileDescriptor(), buf, 0, buf.length, 0);
     return buf.readUInt32BE() + 1;
@@ -201,15 +234,6 @@ export class BinaryFileStorage implements Storage {
     );
   }
 
-  private createReadStreamSafe(filename: string): Promise<fs.ReadStream> {
-    return new Promise((resolve, reject) => {
-      const fileStream = fs.createReadStream(filename);
-      fileStream.on('error', reject).on('open', () => {
-        resolve(fileStream);
-      });
-    });
-  }
-
   /**
    * Big endian
    * @param num
@@ -237,17 +261,6 @@ export class BinaryFileStorage implements Storage {
     return hval >>> 0;
   }
 
-  private getWordFilename(word: string): string {
-    const filename = word.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-    return path.join(
-      this.indexPath,
-      '/words',
-      '/' + filename.length,
-      '/',
-      this.divideIntoParts(filename, 2).join('/')
-    );
-  }
-
   private divideIntoParts(str: string, chunkSize: number) {
     const parts = [];
     let i;
@@ -258,15 +271,6 @@ export class BinaryFileStorage implements Storage {
     parts.push(str.substring(i));
     return parts;
   }
-
-  //   private async wordExists(word: string): Promise<boolean> {
-  //     try {
-  //       await fs.promises.access(this.getWordFilename(word));
-  //       return true;
-  //     } catch (error) {
-  //       return false;
-  //     }
-  //   }
 
   // pages
 
