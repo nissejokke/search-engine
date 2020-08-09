@@ -7,6 +7,7 @@ import { Engine } from './engine';
 import { FileStorage } from './file-storage';
 import readline from 'readline';
 import colors from 'colors/safe';
+import { BinaryFileStorage } from './binary-file-storage';
 
 /**
  * Usage:
@@ -63,15 +64,17 @@ function parse(
 const dir = './.index';
 
 let count = 0;
-const engine = new Engine(new FileStorage(dir));
-const max = 50000;
+const engine = new Engine(new BinaryFileStorage(dir));
+const max = 10;
 let skipped = 0;
 
 (async () => {
   try {
-    //await fs.remove(dir);
+    await fs.remove(dir);
 
-    if (!(await fs.pathExists(dir))) {
+    // fs.writeFile('./.index/word-test', Buffer.from([1, 2, 3]));
+
+    if (true || !(await fs.pathExists(dir))) {
       console.log('Creating index..');
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir);
