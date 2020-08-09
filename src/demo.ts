@@ -72,7 +72,9 @@ let skipped = 0;
   try {
     // await fs.remove(dir);
 
-    if (!(await fs.pathExists(dir))) {
+    // fs.writeFile('./.index/word-test', Buffer.from([1, 2, 3]));
+
+    if (true || !(await fs.pathExists(dir))) {
       console.log('Creating index..');
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir);
