@@ -138,5 +138,5 @@ Result in 1.021ms
 - [x] Store index as files
 - [ ] Store index as binary
   - [ ] Handle collisions
-  - [ ] Clear hash index first?
-  - [ ] 50000 words -> 2TB file
+  - [x] Clear hash index first?
+  - [x] 50000 words -> 2TB file

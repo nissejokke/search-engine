@@ -5,9 +5,10 @@ import path from 'path';
 
 export class BinaryFileStorage implements Storage {
   readonly headerSize: number = 4;
-  readonly hashRowSize: number = 128 + 4;
-  readonly indexSize: number = 256000;
-  readonly blockSize: number = 512;
+  readonly wordSize: number = 64;
+  readonly hashRowSize: number = 64 + 4;
+  readonly hashRows: number = 256000;
+  readonly blockSize: number = 256;
   private fd: number;
   /**
    * Word to page index
@@ -29,8 +30,7 @@ export class BinaryFileStorage implements Storage {
 
   async *getWordIterator(word: string): AsyncIterableIterator<number> {
     let i = 0;
-    const hashEntry = await this.getHashEntry(word);
-    if (this.getWordFromHashEntry(hashEntry) !== word) return;
+    if (!(await this.hashEntryExist(word))) return;
     const blockIndex = await this.getHashEntryBlockIndex(word);
     let block = await this.getBlock(await this.getBlockOffset(blockIndex));
     let siteId: number;
@@ -47,13 +47,15 @@ export class BinaryFileStorage implements Storage {
     } while (siteId > 0);
   }
 
-  async initWord(word: string): Promise<void> {
+  async hashEntryExist(word: string): Promise<boolean> {
     const wordBuf = Buffer.from(word, 'utf-8');
     const readBuf = await this.getHashEntry(word);
 
-    if (readBuf.slice(0, wordBuf.length).compare(wordBuf) === 0) {
-      return;
-    }
+    return readBuf.slice(0, wordBuf.length).compare(wordBuf) === 0;
+  }
+
+  async initWord(word: string): Promise<void> {
+    if (await this.hashEntryExist(word)) return;
 
     const blockIndex = await this.getCurrentBlockIndex();
     await this.writeHashEntry(word, blockIndex, false);
@@ -120,7 +122,14 @@ export class BinaryFileStorage implements Storage {
    */
   private async getFileDescriptor(): Promise<number> {
     if (this.fd) return this.fd;
-    this.fd = await fs.open(path.join(this.indexPath, '/word-dic'), 'a+');
+    const file = path.join(this.indexPath, '/word-dic');
+    const exists = await fs.pathExists(file);
+    this.fd = await fs.open(file, 'a+');
+    if (!exists)
+      await fs.write(
+        this.fd,
+        Buffer.alloc(this.headerSize + this.hashRows * this.hashRowSize)
+      );
     return this.fd;
   }
 
@@ -171,7 +180,9 @@ export class BinaryFileStorage implements Storage {
    */
   private async getBlockOffset(blockIndex: number) {
     const blockOffset =
-      this.headerSize + this.indexSize + blockIndex * this.blockSize;
+      this.headerSize +
+      this.hashRows * this.hashRowSize +
+      blockIndex * this.blockSize;
     return blockOffset;
   }
 
@@ -218,7 +229,7 @@ export class BinaryFileStorage implements Storage {
    */
   private async getHashEntryBlockIndex(word: string) {
     const buf = await this.getHashEntry(word);
-    const block = buf.readUInt32BE(128);
+    const block = buf.readUInt32BE(this.wordSize);
     return block;
   }
 
@@ -228,13 +239,13 @@ export class BinaryFileStorage implements Storage {
    */
   private async getHashEntry(word: string): Promise<Buffer> {
     const hash = this.fnv32a(word);
-    const hashIndex = hash % this.indexSize;
+    const hashIndex = hash % this.hashRows;
 
     // // hash row:
     // // [word 128][block pointer]
     // const hashRowBuf = Buffer.alloc(this.hashRowSize);
     const wordBuf = Buffer.from(word, 'utf-8');
-    if (wordBuf.byteLength > 128)
+    if (wordBuf.byteLength > this.wordSize)
       throw new Error(`${word} to long (${wordBuf.byteLength} bytes)`);
 
     const hashRowOffset = this.headerSize + hashIndex * this.hashRowSize;
@@ -262,18 +273,18 @@ export class BinaryFileStorage implements Storage {
     reset: boolean = false
   ) {
     const hash = this.fnv32a(word);
-    const hashIndex = hash % this.indexSize;
+    const hashIndex = hash % this.hashRows;
 
     // hash row:
     // [word 128][block pointer]
     const hashRowBuf = Buffer.alloc(this.hashRowSize);
     const wordBuf = Buffer.from(word, 'utf-8');
-    if (wordBuf.byteLength > 128)
+    if (wordBuf.byteLength > this.wordSize)
       throw new Error(`${word} to long (${wordBuf.byteLength} bytes)`);
 
     if (!reset) {
       wordBuf.copy(hashRowBuf);
-      Buffer.from(this.toBEInt32(block)).copy(hashRowBuf, 128);
+      Buffer.from(this.toBEInt32(block)).copy(hashRowBuf, this.wordSize);
     }
     const hashRowOffset = this.headerSize + hashIndex * this.hashRowSize;
 
