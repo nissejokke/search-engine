@@ -16,10 +16,12 @@ export class BinaryFileStorage implements Storage {
    *    'giant: [1],
    * }
    *
-   * [word 32*4][block pointer 4]
+   * Storage format:
+   * label (starts at)
+   * header (0): [next free block index]
+   * index (4):  [word 128][block index 4]
    * ...
-   * 256 000:
-   * [data array]..\1[pointer to next block]\0
+   * data (256 000): [4 byte site index, ...][0x0000 (end) or 0xffffff + next block index]
    */
   constructor(public indexPath: string) {
     this.fd = 0;
@@ -35,7 +37,7 @@ export class BinaryFileStorage implements Storage {
       if (siteId === 4294967295) {
         i += 4;
         const nextBlock = block.readUInt32BE(i);
-        block = await this.getBlock(nextBlock);
+        block = await this.getBlock(await this.getBlockOffset(nextBlock));
         i = 0;
         continue;
       }
@@ -71,14 +73,14 @@ export class BinaryFileStorage implements Storage {
     let data: Buffer;
 
     if (insertEnding) {
-      const blockIndex = await this.getCurrentBlockIndex();
-      await this.addBlock(blockIndex);
-      await this.writeBlockIndex(blockIndex + 1);
+      const currBlockIndex = await this.getCurrentBlockIndex();
+      await this.addBlock(currBlockIndex);
+      await this.writeBlockIndex(currBlockIndex + 1);
 
       data = Buffer.concat([
         Buffer.from(this.toBEInt32(pageId)),
         Buffer.from([0xff, 0xff, 0xff, 0xff]),
-        Buffer.from(this.toBEInt32(blockIndex)), // new block pointer
+        Buffer.from(this.toBEInt32(currBlockIndex)), // new block pointer
       ]);
     } else
       data = Buffer.concat([
@@ -192,16 +194,16 @@ export class BinaryFileStorage implements Storage {
       throw new Error(`${word} to long (${wordBuf.byteLength} bytes)`);
 
     const hashRowOffset = this.headerSize + hashIndex * this.hashRowSize;
-    const readBuf = Buffer.alloc(this.hashRowSize);
+    const hashBuf = Buffer.alloc(this.hashRowSize);
 
     await fs.read(
       await this.getFileDescriptor(),
-      readBuf,
+      hashBuf,
       0,
-      readBuf.length,
+      hashBuf.length,
       hashRowOffset
     );
-    return readBuf;
+    return hashBuf;
   }
 
   private async writeHashEntry(
