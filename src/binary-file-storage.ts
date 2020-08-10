@@ -29,15 +29,16 @@ export class BinaryFileStorage implements Storage {
 
   async *getWordIterator(word: string): AsyncIterableIterator<number> {
     let i = 0;
+    const hashEntry = await this.getHashEntry(word);
+    if (this.getWordFromHashEntry(hashEntry) !== word) return;
     const blockIndex = await this.getHashEntryBlockIndex(word);
     let block = await this.getBlock(await this.getBlockOffset(blockIndex));
     let siteId: number;
     do {
       siteId = block.readUInt32BE(i);
       if (siteId === 4294967295) {
-        i += 4;
-        const nextBlock = block.readUInt32BE(i);
-        block = await this.getBlock(await this.getBlockOffset(nextBlock));
+        const nextBlockIndex = block.readUInt32BE(i + 4);
+        block = await this.getBlock(await this.getBlockOffset(nextBlockIndex));
         i = 0;
         continue;
       }
@@ -56,13 +57,14 @@ export class BinaryFileStorage implements Storage {
 
     const blockIndex = await this.getCurrentBlockIndex();
     await this.writeHashEntry(word, blockIndex, false);
-
     await this.addBlock(blockIndex);
     await this.writeBlockIndex(blockIndex + 1);
   }
+
   async resetWord(word: string): Promise<void> {
     await this.writeHashEntry(word, 0, true);
   }
+
   async addWord(word: string, pageId: number): Promise<void> {
     const blockIndex = await this.getHashEntryBlockIndex(word);
     const blockOffset = await this.getBlockOffset(blockIndex);
@@ -97,6 +99,10 @@ export class BinaryFileStorage implements Storage {
     );
   }
 
+  /**
+   * Write empty block at block index
+   * @param blockIndex
+   */
   private async addBlock(blockIndex: number) {
     const blockOffset = await this.getBlockOffset(blockIndex);
     // write empty block
@@ -109,12 +115,19 @@ export class BinaryFileStorage implements Storage {
     );
   }
 
+  /**
+   * Word file descriptor
+   */
   private async getFileDescriptor(): Promise<number> {
     if (this.fd) return this.fd;
     this.fd = await fs.open(path.join(this.indexPath, '/word-dic'), 'a+');
     return this.fd;
   }
 
+  /**
+   * Get block at offset
+   * @param blockOffset
+   */
   private async getBlock(blockOffset: number): Promise<Buffer> {
     const buf = Buffer.allocUnsafe(this.blockSize);
     await fs.read(
@@ -143,9 +156,8 @@ export class BinaryFileStorage implements Storage {
           insertEnding: this.blockSize - i * 4 < 12,
         };
       if (val === 4294967295) {
-        i += 4;
-        blockOffset = buf.readUInt32BE(i);
-        buf = await this.getBlock(blockOffset);
+        const blockIndex = buf.readUInt32BE(i + 4);
+        buf = await this.getBlock(await this.getBlockOffset(blockIndex));
         i = -4;
       }
     }
@@ -153,12 +165,20 @@ export class BinaryFileStorage implements Storage {
     throw new Error('should not have ended up here');
   }
 
+  /**
+   * Block index to block offset
+   * @param blockIndex
+   */
   private async getBlockOffset(blockIndex: number) {
     const blockOffset =
       this.headerSize + this.indexSize + blockIndex * this.blockSize;
     return blockOffset;
   }
 
+  /**
+   * Write next free block index in header
+   * @param blockIndex
+   */
   private async writeBlockIndex(blockIndex: number) {
     // write block index
     await fs.write(
@@ -170,18 +190,42 @@ export class BinaryFileStorage implements Storage {
     );
   }
 
+  /**
+   * Get free block index from header
+   */
   private async getCurrentBlockIndex() {
     const buf = Buffer.alloc(4);
     await fs.read(await this.getFileDescriptor(), buf, 0, buf.length, 0);
     return buf.readUInt32BE() + 1;
   }
 
+  /**
+   * Get word from 128 byte word space in hash entry
+   * @param hashEntry
+   */
+  private getWordFromHashEntry(hashEntry: Buffer): string {
+    return hashEntry
+      .slice(
+        0,
+        hashEntry.findIndex((b) => b === 0)
+      )
+      .toString('utf-8');
+  }
+
+  /**
+   * Get hash entry data for word, which is block index
+   * @param word
+   */
   private async getHashEntryBlockIndex(word: string) {
     const buf = await this.getHashEntry(word);
     const block = buf.readUInt32BE(128);
     return block;
   }
 
+  /**
+   * Get hash entry [word 128][block index 4]
+   * @param word
+   */
   private async getHashEntry(word: string): Promise<Buffer> {
     const hash = this.fnv32a(word);
     const hashIndex = hash % this.indexSize;
@@ -206,6 +250,12 @@ export class BinaryFileStorage implements Storage {
     return hashBuf;
   }
 
+  /**
+   * Write hash entry
+   * @param word
+   * @param block
+   * @param reset
+   */
   private async writeHashEntry(
     word: string,
     block: number,
@@ -250,8 +300,10 @@ export class BinaryFileStorage implements Storage {
     return arr.buffer;
   }
 
-  // 32 bit FNV-1a hash
-  // Ref.: http://isthe.com/chongo/tech/comp/fnv/
+  /**
+   *  32 bit FNV-1a hash
+   *  @link http://isthe.com/chongo/tech/comp/fnv/
+   */
   private fnv32a(str: string): number {
     var FNV1_32A_INIT = 0x811c9dc5;
     var hval = FNV1_32A_INIT;
