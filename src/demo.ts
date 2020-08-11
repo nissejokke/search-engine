@@ -65,12 +65,12 @@ const dir = './.index';
 
 let count = 0;
 const engine = new Engine(new BinaryFileStorage(dir));
-const max = 20000;
+const max = 500;
 let skipped = 0;
 
 (async () => {
   try {
-    // await fs.remove(dir);
+    await fs.remove(dir);
 
     if (!(await fs.pathExists(dir))) {
       console.log('Creating index..');
@@ -122,6 +122,8 @@ let skipped = 0;
           resolve(query);
         })
       );
+
+    // console.log('state', await (await engine.search('state')).length);
 
     while (true) {
       console.log('');
