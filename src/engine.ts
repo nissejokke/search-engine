@@ -69,8 +69,6 @@ export class Engine {
 
     const seed = await this.storage.getSeed();
     await this.storage.setUrlToPage(url, seed);
-    // await this.storage.initWord(pageKey);
-    // await this.storage.addWord(pageKey, seed);
 
     const addedWordsForPage = new Set();
 

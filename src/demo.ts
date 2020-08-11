@@ -65,7 +65,7 @@ const dir = './.index';
 
 let count = 0;
 const engine = new Engine(new BinaryFileStorage(dir));
-const max = 50000;
+const max = 20000;
 let skipped = 0;
 
 (async () => {
