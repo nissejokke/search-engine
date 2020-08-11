@@ -123,7 +123,7 @@ let skipped = 0;
         })
       );
 
-    // console.log('state', await (await engine.search('state')).length);
+    console.log('by', await (await engine.search('by')).length);
 
     while (true) {
       console.log('');

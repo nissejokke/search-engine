@@ -10,6 +10,7 @@ export class BinaryFileStorage implements Storage {
   readonly hashRows: number = 256000;
   readonly blockSize: number = 256;
   private hash: Hash;
+  c: number;
   /**
    * Word to page index
    * Example: {
@@ -27,19 +28,23 @@ export class BinaryFileStorage implements Storage {
   constructor(public indexPath: string) {
     const file = path.join(this.indexPath, '/word-dic');
     this.hash = new Hash({ filePath: file });
+    this.c = 0;
   }
 
   async *getWordIterator(word: string): AsyncIterableIterator<number> {
-    let i = 0;
     if (!(await this.hash.has(word))) return;
 
+    console.log('....', this.c);
+
     for await (const block of this.hash.getIterator(word)) {
+      let i = 0;
       let siteId: number;
       do {
         siteId = block.readUInt32BE(i);
+        console.log(siteId);
         if (siteId > 0) yield siteId;
         i += 4;
-      } while (siteId > 0);
+      } while (siteId > 0 && i < block.length);
     }
   }
 
@@ -53,6 +58,8 @@ export class BinaryFileStorage implements Storage {
   }
 
   async addWord(word: string, pageId: number): Promise<void> {
+    // console.log(word, pageId);
+    if (word === 'by') this.c++;
     for await (const write of this.hash.appendIterator(word)) {
       const buf = Buffer.from(this.toBEInt32(pageId));
       await write(buf);
