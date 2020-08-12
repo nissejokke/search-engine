@@ -60,13 +60,13 @@ engine.search('"from the Sun" Moon');
 - 121295 words loaded (no stop words)
 - Tested on 2018 MacBook Pro.
 
-Test command: npm run bench
+Test command: npm run demo
 
 ```typescript
 const result = engine.search('philosophy psychology');
 ```
 
-Result in 2.632ms
+Result in 3.850ms
 
 ```js
 [
@@ -102,7 +102,7 @@ Result in 2.632ms
 const result2 = engine.search('"carl friedrich" german');
 ```
 
-Result in 1.021ms
+Result in 6.177ms
 
 ```js
 [
