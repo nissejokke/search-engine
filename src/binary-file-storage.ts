@@ -20,13 +20,18 @@ export class BinaryFileStorage implements Storage {
    * Storage format:
    * label (starts at)
    * header (0): [next free block index]
-   * index (4):  [word 128][block index 4]
+   * index (4):  [word 64][block index 4]
    * ...
-   * data (256 000): [4 byte site index, ...][0x0000 (end) or 0xffffff + next block index]
+   * data (256 000): [4 byte first available or 0xffffff for full][X byte data ...][next block index]
    */
   constructor(public indexPath: string) {
     const file = path.join(this.indexPath, '/word-dic');
-    this.hash = new Hash({ filePath: file });
+    this.hash = new Hash({
+      filePath: file,
+      blockSize: 256,
+      hashRows: 256000,
+      wordSize: 32,
+    });
   }
 
   async *getWordIterator(word: string): AsyncIterableIterator<number> {

@@ -3,14 +3,26 @@ import path from 'path';
 
 export class Hash {
   readonly headerSize: number = 4;
-  readonly wordSize: number = 64;
-  readonly hashRowSize: number = 64 + 4;
-  readonly hashRows: number = 256000;
-  readonly blockSize: number = 256;
-
+  wordSize: number; // 64;
+  hashRowSize: number; // 64 + 4;
+  hashRows: number; // 256000;
+  blockSize: number; // 256;
   private fd: number;
-  constructor(private opts: { filePath: string }) {
+
+  constructor(
+    private opts: {
+      filePath: string;
+      wordSize: number;
+      hashRows: number;
+      blockSize: number;
+    }
+  ) {
     this.fd = 0;
+    this.wordSize = opts.wordSize;
+    this.hashRows = opts.hashRows;
+    this.blockSize = opts.blockSize;
+
+    this.hashRowSize = this.wordSize + this.headerSize;
   }
 
   async set(key: string, data?: Buffer): Promise<number> {
