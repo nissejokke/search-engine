@@ -43,12 +43,29 @@ export class Hash {
     const fd = await this.getFileDescriptor();
 
     let blockOffset = (await this.get(key)) - 4;
-    let firstAvailable = (await this.getBlock(blockOffset, 4)).readUInt32BE();
+    let isBlockFull = false;
+    let firstAvailable: number;
+
+    // iterate until last block
+    do {
+      firstAvailable = (await this.getBlock(blockOffset, 4)).readUInt32BE();
+      isBlockFull = firstAvailable === 4294967295;
+      if (isBlockFull) {
+        let nextBlockIndex = (
+          await this.getBlock(blockOffset + this.blockSize - 4, 4)
+        ).readUInt32BE();
+        if (nextBlockIndex > 0)
+          blockOffset = this.getBlockOffset(nextBlockIndex);
+        else return;
+      }
+    } while (isBlockFull);
+
     let blockRemaining = this.blockSize - 8 - firstAvailable;
     let offset = blockOffset + 4 + firstAvailable;
 
     while (true) {
       yield async (buf: Buffer) => {
+        // block full, allocate new block
         if (blockRemaining < buf.length) {
           const newBlockIndex = await this.getCurrentBlockIndex();
           await this.writeBlock(newBlockIndex, Buffer.alloc(this.blockSize));
@@ -61,28 +78,26 @@ export class Hash {
             undefined,
             blockOffset + this.blockSize - 4
           );
-          if (key === 'by')
-            console.log(
-              'writing',
-              (blockOffset -
-                this.headerSize -
-                this.hashRows * this.hashRowSize) /
-                this.blockSize,
-              newBlockIndex,
-              blockOffset,
-              (await this.getBlock(blockOffset)).toString('hex')
-            );
+          // mark block as full
+          await fs.write(
+            fd,
+            Buffer.from(this.toBEInt32(4294967295)),
+            undefined,
+            undefined,
+            blockOffset
+          );
 
-          blockOffset = await this.getBlockOffset(newBlockIndex);
+          blockOffset = this.getBlockOffset(newBlockIndex);
           offset = blockOffset + 4;
           blockRemaining = this.blockSize - 8;
           firstAvailable = 0;
         }
+
         await fs.write(fd, buf, undefined, undefined, offset);
         offset += buf.length;
         firstAvailable += buf.length;
         blockRemaining -= buf.length;
-        // if (key === 'by') console.log('.', blockOffset, firstAvailable);
+
         await fs.write(
           fd,
           Buffer.from(this.toBEInt32(firstAvailable)),
@@ -100,25 +115,23 @@ export class Hash {
 
   async get(key: string): Promise<number> {
     const blockIndex = await this.getHashEntryBlockIndex(key);
-    return (
-      (await this.getBlockOffset(blockIndex)) + 4 /* skip fist available */
-    );
+    return this.getBlockOffset(blockIndex) + 4 /* skip fist available */;
   }
 
-  async *getIterator(key: string): AsyncIterableIterator<Buffer> {
+  async *getIterator(
+    key: string
+  ): AsyncIterableIterator<{ buffer: Buffer; offset: number }> {
     let offset: number = -1;
     let block: Buffer = Buffer.alloc(0);
     while (true) {
       if (offset === -1) offset = (await this.get(key)) - 4;
       else {
         const nextBlockIndex = block.readUInt32BE(this.blockSize - 4);
-        console.log('->', nextBlockIndex);
-        if (nextBlockIndex > 0)
-          offset = await this.getBlockOffset(nextBlockIndex);
+        if (nextBlockIndex > 0) offset = this.getBlockOffset(nextBlockIndex);
         else break;
       }
       block = await this.getBlock(offset);
-      yield block.slice(4, this.blockSize - 8);
+      yield { buffer: block.slice(4, this.blockSize - 4), offset: offset + 4 };
     }
   }
 
@@ -126,7 +139,11 @@ export class Hash {
     const wordBuf = Buffer.from(key, 'utf-8');
     const readBuf = await this.getHashEntry(key);
 
-    return readBuf.slice(0, wordBuf.length).compare(wordBuf) === 0;
+    return (
+      readBuf
+        .slice(0, wordBuf.length + 4)
+        .compare(Buffer.concat([wordBuf, Buffer.from(this.toBEInt32(0))])) === 0
+    );
   }
 
   /**
@@ -135,7 +152,7 @@ export class Hash {
    */
   private async writeBlock(blockIndex: number, data: Buffer) {
     if (data.length > this.blockSize) throw new Error('Not valid currently');
-    const blockOffset = await this.getBlockOffset(blockIndex);
+    const blockOffset = this.getBlockOffset(blockIndex);
     // write empty block
     await fs.write(
       await this.getFileDescriptor(),
@@ -181,36 +198,11 @@ export class Hash {
     return buf;
   }
 
-  //   /**
-  //    * Given a block, find end of data of that block or other linked blocks
-  //    * @param blockOffset
-  //    */
-  //   private async getBlockEndingOffset(
-  //     blockOffset: number
-  //   ): Promise<{ blockOffset: number; insertEnding: boolean }> {
-  //     let buf = await this.getBlock(blockOffset);
-  //     for (let i = 0; i < buf.length; i += 4) {
-  //       let val = buf.readUInt32BE(i);
-  //       if (val === 0)
-  //         return {
-  //           blockOffset: blockOffset + i,
-  //           insertEnding: this.blockSize - i * 4 < 12,
-  //         };
-  //       if (val === 4294967295) {
-  //         const blockIndex = buf.readUInt32BE(i + 4);
-  //         buf = await this.getBlock(await this.getBlockOffset(blockIndex));
-  //         i = -4;
-  //       }
-  //     }
-
-  //     throw new Error('should not have ended up here');
-  //   }
-
   /**
    * Block index to block offset
    * @param blockIndex
    */
-  private async getBlockOffset(blockIndex: number) {
+  private getBlockOffset(blockIndex: number): number {
     const blockOffset =
       this.headerSize +
       this.hashRows * this.hashRowSize +
