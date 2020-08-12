@@ -3,7 +3,7 @@ import path from 'path';
 
 export class Hash {
   readonly headerSize: number = 4;
-  wordSize: number; // 64;
+  keySize: number; // 64;
   hashRowSize: number; // 64 + 4;
   hashRows: number; // 256000;
   blockSize: number; // 256;
@@ -12,17 +12,17 @@ export class Hash {
   constructor(
     private opts: {
       filePath: string;
-      wordSize: number;
+      keySize: number;
       hashRows: number;
       blockSize: number;
     }
   ) {
     this.fd = 0;
-    this.wordSize = opts.wordSize;
+    this.keySize = opts.keySize;
     this.hashRows = opts.hashRows;
     this.blockSize = opts.blockSize;
 
-    this.hashRowSize = this.wordSize + this.headerSize;
+    this.hashRowSize = this.keySize + this.headerSize;
   }
 
   async set(key: string, data?: Buffer): Promise<number> {
@@ -34,12 +34,12 @@ export class Hash {
     }
 
     // hash row:
-    // [word 128][block pointer]
+    // [key 128][block pointer]
     const hashBuf = Buffer.alloc(this.hashRowSize);
     const keyBuf = Buffer.from(key, 'utf-8');
 
     keyBuf.copy(hashBuf);
-    Buffer.from(this.toBEInt32(blockIndex)).copy(hashBuf, this.wordSize);
+    Buffer.from(this.toBEInt32(blockIndex)).copy(hashBuf, this.keySize);
 
     await this.writeHash(key, hashBuf);
     const buf = Buffer.alloc(this.blockSize);
@@ -148,13 +148,13 @@ export class Hash {
   }
 
   async hashEntryExist(key: string): Promise<boolean> {
-    const wordBuf = Buffer.from(key, 'utf-8');
+    const keyBuf = Buffer.from(key, 'utf-8');
     const readBuf = await this.getHashEntry(key);
 
     return (
       readBuf
-        .slice(0, wordBuf.length + 4)
-        .compare(Buffer.concat([wordBuf, Buffer.from(this.toBEInt32(0))])) === 0
+        .slice(0, keyBuf.length + 4)
+        .compare(Buffer.concat([keyBuf, Buffer.from(this.toBEInt32(0))])) === 0
     );
   }
 
@@ -176,7 +176,7 @@ export class Hash {
   }
 
   /**
-   * Word file descriptor
+   * File descriptor
    */
   private async getFileDescriptor(): Promise<number> {
     if (this.fd) return this.fd;
@@ -247,17 +247,17 @@ export class Hash {
   }
 
   /**
-   * Get hash entry data for word, which is block index
-   * @param word
+   * Get hash entry data for key, which is block index
+   * @param key
    */
-  private async getHashEntryBlockIndex(word: string) {
-    const buf = await this.getHashEntry(word);
-    const block = buf.readUInt32BE(this.wordSize);
+  private async getHashEntryBlockIndex(key: string) {
+    const buf = await this.getHashEntry(key);
+    const block = buf.readUInt32BE(this.keySize);
     return block;
   }
 
   /**
-   * Get hash entry [word 128][block index 4]
+   * Get hash entry [key 128][block index 4]
    * @param key
    */
   private async getHashEntry(key: string): Promise<Buffer> {
@@ -265,13 +265,13 @@ export class Hash {
     const hashIndex = hash % this.hashRows;
 
     // // hash row:
-    // // [word 128][block pointer]
+    // // [key 128][block pointer]
     // const hashRowBuf = Buffer.alloc(this.hashRowSize);
-    const wordBuf = Buffer.from(key, 'utf-8');
+    const keyBuf = Buffer.from(key, 'utf-8');
 
-    if (wordBuf.byteLength > this.wordSize)
+    if (keyBuf.byteLength > this.keySize)
       throw new Error(
-        `${key} to long (${wordBuf.byteLength} bytes, max ${this.wordSize})`
+        `${key} to long (${keyBuf.byteLength} bytes, max ${this.keySize})`
       );
 
     const hashRowOffset = this.headerSize + hashIndex * this.hashRowSize;
@@ -289,7 +289,7 @@ export class Hash {
 
   /**
    * Write hash entry
-   * @param word
+   * @param key
    * @param block
    * @param reset
    */
@@ -299,7 +299,7 @@ export class Hash {
 
     if (data.byteLength > this.hashRowSize)
       throw new Error(
-        `${key} to long (${data.byteLength} bytes, max ${this.wordSize})`
+        `${key} to long (${data.byteLength} bytes, max ${this.keySize})`
       );
 
     const hashRowOffset = this.headerSize + hashIndex * this.hashRowSize;

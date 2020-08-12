@@ -10,12 +10,10 @@ export class BinaryFileStorage implements Storage {
   readonly hashRows: number = 256000;
   readonly blockSize: number = 256;
   private hash: Hash;
+  // Not used right now:
+  // private urlToPage: Hash;
   /**
-   * Word to page index
-   * Example: {
-   *    'planet': [1],
-   *    'giant: [1],
-   * }
+   * Hash
    *
    * Storage format:
    * label (starts at)
@@ -25,13 +23,18 @@ export class BinaryFileStorage implements Storage {
    * data (256 000): [4 byte first available or 0xffffff for full][X byte data ...][next block index]
    */
   constructor(public indexPath: string) {
-    const file = path.join(this.indexPath, '/word-dic');
     this.hash = new Hash({
-      filePath: file,
-      blockSize: 256,
+      filePath: path.join(this.indexPath, '/word-dic'),
+      keySize: 32,
       hashRows: 256000,
-      wordSize: 32,
+      blockSize: 256,
     });
+    // this.urlToPage = new Hash({
+    //   filePath: path.join(this.indexPath, '/urls'),
+    //   keySize: 1024,
+    //   hashRows: 256000,
+    //   blockSize: 4 + 8,
+    // });
   }
 
   async *getWordIterator(word: string): AsyncIterableIterator<number> {
@@ -117,6 +120,9 @@ export class BinaryFileStorage implements Storage {
 
   async getUrlToPage(url: string): Promise<number | undefined> {
     try {
+      // for await (const it of this.urlToPage.getIterator(url)) {
+      //   return it.buffer.readUInt32BE();
+      // }
       return await fs.readJson(this.getUrlToPageFilename(url));
     } catch (err) {
       return undefined;
@@ -124,6 +130,10 @@ export class BinaryFileStorage implements Storage {
   }
 
   async setUrlToPage(url: string, pageId: number): Promise<void> {
+    // for await (const writer of this.urlToPage.appendIterator(url)) {
+    //   writer(Buffer.from(this.toBEInt32(pageId)));
+    //   break;
+    // }
     await fs.ensureFile(this.getUrlToPageFilename(url));
     await fs.writeFile(this.getUrlToPageFilename(url), JSON.stringify(pageId), {
       encoding: 'utf-8',
