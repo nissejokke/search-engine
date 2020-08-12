@@ -26,7 +26,7 @@ export class BinaryFileStorage implements Storage {
     this.hash = new Hash({
       filePath: path.join(this.indexPath, '/word-dic'),
       keySize: 32,
-      hashRows: 256000,
+      hashRows: 500000,
       blockSize: 256,
     });
     // this.urlToPage = new Hash({

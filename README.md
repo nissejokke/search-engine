@@ -137,4 +137,4 @@ Result in 1.021ms
   - [x] Url
 - [x] Store index as files
 - [x] Store index as binary
-  - [ ] Handle collisions
+  - [x] Handle collisions

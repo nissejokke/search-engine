@@ -26,7 +26,8 @@ export class Hash {
   }
 
   async set(key: string, data?: Buffer): Promise<number> {
-    let blockIndex = await this.getHashEntryBlockIndex(key);
+    let { hashIndex, blockIndex } = await this.getHashEntryMatchingKey(key);
+
     const blockExists = blockIndex > 0;
     if (!blockExists) {
       blockIndex = await this.getCurrentBlockIndex();
@@ -41,7 +42,7 @@ export class Hash {
     keyBuf.copy(hashBuf);
     Buffer.from(this.toBEInt32(blockIndex)).copy(hashBuf, this.keySize);
 
-    await this.writeHash(key, hashBuf);
+    await this.writeHash(hashIndex, key, hashBuf);
     const buf = Buffer.alloc(this.blockSize);
     if (data) data.copy(buf);
     await this.writeBlock(blockIndex, buf);
@@ -126,7 +127,7 @@ export class Hash {
   }
 
   async get(key: string): Promise<number> {
-    const blockIndex = await this.getHashEntryBlockIndex(key);
+    const { blockIndex } = await this.getHashEntryMatchingKey(key);
     return this.getBlockOffset(blockIndex) + 4 /* skip fist available */;
   }
 
@@ -142,17 +143,50 @@ export class Hash {
         if (nextBlockIndex > 0) offset = this.getBlockOffset(nextBlockIndex);
         else break;
       }
+
       block = await this.getBlock(offset);
       yield { buffer: block.slice(4, this.blockSize - 4), offset: offset + 4 };
     }
   }
 
+  /**
+   * Find hash entry with key
+   * @param key
+   */
+  async getHashEntryMatchingKey(key: string) {
+    let hashIndex = this.getHashIndexFromKey(key);
+    let hashEntry: Buffer;
+    let checkNextEntry: boolean;
+    let blockIndex: number;
+    let collisions = 0;
+    do {
+      hashEntry = await this.getHashEntryByIndex(hashIndex);
+      blockIndex = hashEntry.readUInt32BE(this.keySize);
+      if (blockIndex > 0) {
+        const hashEntryContainsKey = await this.hashEntryContainsData(
+          hashEntry,
+          key
+        );
+        if (!hashEntryContainsKey) {
+          hashIndex += (collisions + 1) ** 2;
+          checkNextEntry = true;
+          // console.log('*', hashIndex, key, '=', hashEntry.toString('utf-8'));
+        } else checkNextEntry = false;
+      } else checkNextEntry = false;
+    } while (checkNextEntry);
+    return { hashIndex, blockIndex };
+  }
+
   async hashEntryExist(key: string): Promise<boolean> {
+    const { blockIndex } = await this.getHashEntryMatchingKey(key);
+    return blockIndex > 0;
+  }
+
+  hashEntryContainsData(hashEntry: Buffer, key: string) {
     const keyBuf = Buffer.from(key, 'utf-8');
-    const readBuf = await this.getHashEntry(key);
 
     return (
-      readBuf
+      hashEntry
         .slice(0, keyBuf.length + 4)
         .compare(Buffer.concat([keyBuf, Buffer.from(this.toBEInt32(0))])) === 0
     );
@@ -261,9 +295,6 @@ export class Hash {
    * @param key
    */
   private async getHashEntry(key: string): Promise<Buffer> {
-    const hash = this.fnv32a(key);
-    const hashIndex = hash % this.hashRows;
-
     // // hash row:
     // // [key 128][block pointer]
     // const hashRowBuf = Buffer.alloc(this.hashRowSize);
@@ -274,6 +305,17 @@ export class Hash {
         `${key} to long (${keyBuf.byteLength} bytes, max ${this.keySize})`
       );
 
+    const hashIndex = this.getHashIndexFromKey(key);
+    return this.getHashEntryByIndex(hashIndex);
+  }
+
+  private getHashIndexFromKey(key: string) {
+    const hash = this.fnv32a(key);
+    const hashIndex = hash % this.hashRows;
+    return hashIndex;
+  }
+
+  private async getHashEntryByIndex(hashIndex: number) {
     const hashRowOffset = this.headerSize + hashIndex * this.hashRowSize;
     const hashBuf = Buffer.alloc(this.hashRowSize);
 
@@ -293,10 +335,7 @@ export class Hash {
    * @param block
    * @param reset
    */
-  private async writeHash(key: string, data: Buffer) {
-    const hash = this.fnv32a(key);
-    const hashIndex = hash % this.hashRows;
-
+  private async writeHash(hashIndex: number, key: string, data: Buffer) {
     if (data.byteLength > this.hashRowSize)
       throw new Error(
         `${key} to long (${data.byteLength} bytes, max ${this.keySize})`
@@ -340,5 +379,29 @@ export class Hash {
         (hval << 1) + (hval << 4) + (hval << 7) + (hval << 8) + (hval << 24);
     }
     return hval >>> 0;
+  }
+
+  private fnv32(str: string): number {
+    const offset_basis = 2166136261; // The prime, 32 bit offset_basis = 2,166,136,261 = 0x811C9DC5.
+
+    const data = new Buffer(str);
+
+    if (!Buffer.isBuffer(data)) {
+      throw new Error('fnv32 input must be a String or Buffer.');
+    }
+
+    var hashint = offset_basis;
+
+    for (var i = 0; i < data.length; i++) {
+      hashint +=
+        (hashint << 1) +
+        (hashint << 4) +
+        (hashint << 7) +
+        (hashint << 8) +
+        (hashint << 24);
+      hashint = hashint ^ data[i];
+    }
+
+    return hashint >>> 0; // unsigned 32 bit integer.
   }
 }
