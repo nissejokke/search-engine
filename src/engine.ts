@@ -166,6 +166,7 @@ export class Engine {
      */
     const titleEqual = async (pageId: number): Promise<boolean> => {
       const page = await this.storage.getPage(pageId);
+
       return (
         words.filter((word, index) => {
           const indices = indicesForWord(word, page);
