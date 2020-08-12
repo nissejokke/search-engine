@@ -136,7 +136,5 @@ Result in 1.021ms
   - [x] Title
   - [x] Url
 - [x] Store index as files
-- [ ] Store index as binary
+- [x] Store index as binary
   - [ ] Handle collisions
-  - [x] Clear hash index first?
-  - [x] 50000 words -> 2TB file

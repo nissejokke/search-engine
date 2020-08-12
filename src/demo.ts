@@ -65,7 +65,7 @@ const dir = './.index';
 
 let count = 0;
 const engine = new Engine(new BinaryFileStorage(dir));
-const max = 20000;
+const max = 15000;
 let skipped = 0;
 
 (async () => {
@@ -93,7 +93,6 @@ let skipped = 0;
           process.stdout.write(
             Math.round((count * 100) / max).toString() + '%'
           );
-          //await new Promise((resolve) => setTimeout(resolve, 1000));
         }
         try {
           await engine.add({
@@ -123,11 +122,13 @@ let skipped = 0;
         })
       );
 
+    // console.log('by', await (await engine.search('by', 1000)).length);
+
     while (true) {
       console.log('');
       const query = await prompt();
       console.time('Query time');
-      const r = await engine.search(query, 100);
+      const r = await engine.search(query, 1000);
       console.log();
       console.log(
         r
