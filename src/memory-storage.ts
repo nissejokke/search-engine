@@ -63,8 +63,9 @@ export class MemoryStorage implements Storage {
   }
 
   async initPage(pageId: number, page: Page): Promise<void> {
-    const { url, words, index } = page;
+    const { title, url, words, index } = page;
     this.pages[pageId] = {
+      title,
       url,
       words,
       index,

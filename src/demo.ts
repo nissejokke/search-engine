@@ -65,14 +65,14 @@ const dir = './.index';
 
 let count = 0;
 const engine = new Engine(new BinaryFileStorage(dir));
-const max = 2000;
+const max = 10000;
 let skipped = 0;
 
 (async () => {
   try {
     // await fs.remove(dir);
 
-    if (true || !(await fs.pathExists(dir))) {
+    if (!(await fs.pathExists(dir))) {
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir);
         console.log('Creating index..');
@@ -106,7 +106,8 @@ let skipped = 0;
         }
         try {
           await engine.add({
-            text: item.title.replace('Wikipedia: ', '') + ' - ' + item.abstract,
+            title: item.title.replace('Wikipedia: ', ''),
+            text: item.abstract,
             url: item.url,
           });
         } catch (err) {
@@ -141,15 +142,20 @@ let skipped = 0;
       console.log('');
       const query = await prompt();
       console.time('Query time');
-      const r = await engine.search(query, 1000);
+      const results = await engine.search(query, 10);
       console.log();
       console.log(
-        r
-          .map((item) => `${item.ingress}\n  ${colors.gray(item.url)}`)
+        results
+          .map(
+            (item) =>
+              `${colors.cyan(item.title)}\n${item.ingress}\n  ${colors.gray(
+                item.url
+              )}`
+          )
           .join('\n\n')
       );
       console.log('');
-      console.log(r.length, 'results');
+      console.log(results.length, 'results');
       console.timeEnd('Query time');
     }
   } catch (err) {

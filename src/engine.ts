@@ -17,11 +17,13 @@ export interface Storage {
 }
 
 export interface SearchResult {
+  title: string;
   ingress: string;
   url: string;
 }
 
 export interface Page {
+  title: string;
   url: string;
   words: string[];
   /**
@@ -59,9 +61,17 @@ export class Engine {
    * Add text to index
    * @param param0
    */
-  async add({ text, url }: { text: string; url: string }): Promise<void> {
+  async add({
+    title,
+    text,
+    url,
+  }: {
+    title: string;
+    text: string;
+    url: string;
+  }): Promise<void> {
     // const pageKey = `site:${url}`;
-    const { words } = this.toWords(text);
+    const { words } = this.toWords(title + ' ' + text);
 
     const pageId = await this.storage.getUrlToPage(url);
     if (pageId)
@@ -100,7 +110,7 @@ export class Engine {
       if ((pageIndex[wordLower] as any).push) pageIndex[wordLower].push(index);
     });
 
-    await this.storage.initPage(seed, { url, words, index: pageIndex });
+    await this.storage.initPage(seed, { title, url, words, index: pageIndex });
     await this.storage.increaseSeed();
   }
 
@@ -135,15 +145,16 @@ export class Engine {
 
     // intersect arrays to get all page where all words exist
     const pages = this.uniqueArr(
-      await this.intersect(arrs, maxCount, isQuoteOnPage)
+      await this.intersect(arrs, 100, isQuoteOnPage)
     );
 
     let sortedPages = await this.rankPages(wordsWithoutStopWords, pages);
 
     return await Promise.all(
-      sortedPages.map(async (pageId) => {
+      sortedPages.slice(0, maxCount).map(async (pageId) => {
         const page = await this.storage.getPage(pageId);
         return {
+          title: page.title,
           ingress: await this.constructIngress(words, quotes, page),
           url: page.url,
         };
@@ -164,16 +175,27 @@ export class Engine {
      * Is words in title
      * @param pageId
      */
-    const titleEqual = async (pageId: number): Promise<boolean> => {
+    const titleEqual = async (
+      pageId: number
+    ): Promise<{ exact: boolean; begins: boolean; pos: number }> => {
       const page = await this.storage.getPage(pageId);
 
-      return (
-        words.filter((word, index) => {
-          const indices = indicesForWord(word, page);
-          const equals = indices[0] === index;
-          return equals;
-        }).length === words.length
-      );
+      const matches = words.filter((word, index) => {
+        const indices = indicesForWord(word, page);
+        const equals = indices[0] === index;
+        return equals;
+      }).length;
+
+      const titleWords = this.toWords(page.title, true).words;
+
+      return {
+        exact: matches === titleWords.length,
+        begins: matches > 0,
+        pos: words
+          .map((word) => titleWords.indexOf(word))
+          .filter((index) => index > -1)
+          .sort()[0],
+      };
     };
 
     /**
@@ -192,7 +214,10 @@ export class Engine {
 
     const getScore = async (pageId: number): Promise<number> => {
       let score = 0;
-      if (await titleEqual(pageId)) score += 10;
+      const { exact, begins, pos } = await titleEqual(pageId);
+      if (exact) score += 10;
+      else if (begins) score += 5;
+      else if (pos < 3) score += 1;
       if (urlMatch((await this.storage.getPage(pageId)).url)) score += 1;
       return score;
     };

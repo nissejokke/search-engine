@@ -29,6 +29,7 @@ describe('Planets', () => {
         */
     engine = new Engine();
     await engine.add({
+      title: 'Jupiter',
       text: `Jupiter is the fifth planet from the Sun and the largest in the 
       Solar System. It is a gas giant with a mass one-thousandth that of the Sun, 
       but two-and-a-half times that of all the other planets in the Solar System 
@@ -41,6 +42,7 @@ describe('Planets', () => {
       url: 'https://en.wikipedia.org/wiki/Jupiter',
     });
     await engine.add({
+      title: 'Saturn',
       text: `Saturn is the sixth planet from the Sun and the second-largest in the 
         Solar System, after Jupiter. It is a gas giant with an average radius 
         of about nine times that of Earth.[18][19] It only has one-eighth the 
@@ -129,6 +131,7 @@ test('Should not match', async () => {
   let engine: Engine;
   engine = new Engine();
   await engine.add({
+    title: 'Petrochemicals',
     text: `Petrochemicals (also known as petroleum distillates) are the 
             chemical products obtained from petroleum by refining. 
             Some chemical compounds made from petroleum are also obtained 
@@ -217,7 +220,11 @@ test('should get results', async () => {
   ];
   for (let i = 0; i < pages.length; i++) {
     const text = pages[i];
-    await engine.add({ text: text.text, url: text.url });
+    await engine.add({
+      title: text.url.replace('_', ' '),
+      text: text.text,
+      url: text.url,
+    });
   }
 
   const result = await engine.search('"carl friedrich"');
@@ -229,37 +236,42 @@ test('should get results', async () => {
   expect(result[5].ingress).toContain('"CARL FrieDricH"');
 });
 
-describe('Rank', () => {
+describe('Rank Haber', () => {
   let engine: Engine;
   beforeEach(async () => {
     engine = new Engine();
     // hackapedia articles is not as good as wikipedia, they have not as nice urls
     await engine.add({
-      text: `Process - A process is series or set of activities that interact to 
+      title: 'Process',
+      text: `A process is series or set of activities that interact to 
       produce a result; it may occur once-only or be recurrent 
       or periodic.`,
       url: 'https://hackapedia.org/?id=12345',
     });
     await engine.add({
-      text: `Process - A process is series or set of activities that interact to 
+      title: 'Process',
+      text: `A process is series or set of activities that interact to 
       produce a result; it may occur once-only or be recurrent 
       or periodic.`,
       url: 'https://en.wikipedia.org/wiki/Process',
     });
     await engine.add({
-      text: `Haber - Haber is a surname of German origin. The meaning in 
+      title: 'Haber',
+      text: `Haber is a surname of German origin. The meaning in 
       old German is "oat". The cereal is now in German called "Hafer".
       The process of making is ....`,
       url: 'https://en.wikipedia.org/wiki/Haber',
     });
     await engine.add({
-      text: `Haber process - The Haber process,[1] also called the Haber–Bosch process, 
+      title: 'Haber process',
+      text: `The Haber process,[1] also called the Haber–Bosch process, 
             is an artificial nitrogen fixation process and is the main 
             industrial procedure for the production of ammonia today.`,
       url: 'https://hackapedia.org/?id=4567&title=Haber',
     });
     await engine.add({
-      text: `Haber process - The Haber process,[1] also called the Haber–Bosch process, 
+      title: 'Haber process',
+      text: `The Haber process,[1] also called the Haber–Bosch process, 
             is an artificial nitrogen fixation process and is the main 
             industrial procedure for the production of ammonia today.`,
       url: 'https://en.wikipedia.org/wiki/Haber_process',
@@ -278,5 +290,46 @@ describe('Rank', () => {
   test('Haber process', async () => {
     const result = await engine.search('haber process');
     expect(result[0].url).toBe('https://en.wikipedia.org/wiki/Haber_process');
+  });
+});
+
+describe('Rank Star', () => {
+  let engine: Engine;
+  beforeEach(async () => {
+    engine = new Engine();
+    // hackapedia articles is not as good as wikipedia, they have not as nice urls
+    await engine.add({
+      title: 'Technology in Star Trek',
+      text: `The technology in Star Trek has borrowed many ideas from the scientific world. Episodes often contain technologies named after real-world scientific phenomena, such as tachyon beams, baryon sweeps, quantum slipstream drives, and photon torpedoes. Some of the technologies created for the Star Trek universe were done so out of financial necessity. For instance, the transporter was created because the limited budget of Star Trek: The Original Series (TOS) in the 1960s did not allow expensive shots of spaceships landing on planets.[1][page needed]`,
+      url: 'https://en.wikipedia.org/wiki/Technology_in_Star_Trek',
+    });
+    await engine.add({
+      title: 'Star Trek: The Original Series',
+      text: `Star Trek is an American science-fiction television series created by Gene Roddenberry that follows the adventures of the starship USS Enterprise (NCC-1701) and its crew. It later acquired the retronym of Star Trek: The Original Series (TOS) to distinguish the show within the media franchise that it began.`,
+      url: 'https://en.wikipedia.org/wiki/Star_Trek:_The_Original_Series',
+    });
+    await engine.add({
+      title: 'Star',
+      text: `A star is an astronomical object consisting of a luminous spheroid of plasma held together by its own gravity. The nearest star to Earth is the Sun. Many other stars are visible to the naked eye from Earth during the night, appearing as a multitude of fixed luminous points in the sky due to their immense distance from Earth. Historically, the most prominent stars were grouped into constellations and asterisms, the brightest of which gained proper names. Astronomers have assembled star catalogues that identify the known stars and provide standardized stellar designations. The observable Universe contains an estimated 1×1024 stars,[1][2] but most are invisible to the naked eye from Earth, including all stars outside our galaxy, the Milky Way.`,
+      url: 'https://en.wikipedia.org/wiki/Star',
+    });
+  });
+  test('Star', async () => {
+    const result = await engine.search('star');
+    expect(result[0].url).toBe('https://en.wikipedia.org/wiki/Star');
+  });
+
+  test('Trek', async () => {
+    const result = await engine.search('trek');
+    expect(result[0].url).toBe(
+      'https://en.wikipedia.org/wiki/Star_Trek:_The_Original_Series'
+    );
+  });
+
+  test('Haber process', async () => {
+    const result = await engine.search('star trek');
+    expect(result[0].url).toBe(
+      'https://en.wikipedia.org/wiki/Star_Trek:_The_Original_Series'
+    );
   });
 });
