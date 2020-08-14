@@ -65,18 +65,24 @@ const dir = './.index';
 
 let count = 0;
 const engine = new Engine(new BinaryFileStorage(dir));
-const max = 10000;
+const max = 2000;
 let skipped = 0;
 
 (async () => {
   try {
     // await fs.remove(dir);
 
-    if (!(await fs.pathExists(dir))) {
-      console.log('Creating index..');
+    if (true || !(await fs.pathExists(dir))) {
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir);
-      }
+        console.log('Creating index..');
+      } else console.log('Appending index..');
+
+      const lastUrlFile = path.join(dir, 'last-url');
+      let lastUrl = '';
+      let skippingMode = true;
+      if (await fs.pathExists(lastUrlFile))
+        lastUrl = await fs.readJson(lastUrlFile, { encoding: 'utf-8' });
       await parse('utf8', async (item) => {
         const skip =
           !item.abstract ||
@@ -87,6 +93,10 @@ let skipped = 0;
           skipped++;
           return true;
         }
+        if (skippingMode && lastUrl && item.url !== lastUrl) return true;
+        skippingMode = false;
+        if (lastUrl === item.url) return true;
+        lastUrl = item.url;
 
         if (count % 200 === 0) {
           process.stdout.write('\b\b\b\b');
@@ -105,6 +115,9 @@ let skipped = 0;
         const keepAdding = ++count < max;
         return keepAdding;
       });
+      await fs.writeJSON(lastUrlFile, lastUrl, { encoding: 'utf-8' });
+      console.log('');
+      console.log(`last item added: ${lastUrl}`);
     }
 
     console.log('');
