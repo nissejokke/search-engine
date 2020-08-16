@@ -13,7 +13,7 @@ export class MemoryStorage implements Storage {
    *    'giant: [1],
    * }
    */
-  index: Record<string, number[]>;
+  index: Record<string, LinkedList<number>>;
 
   /**
    * page id to pages index
@@ -49,17 +49,23 @@ export class MemoryStorage implements Storage {
 
   async *getWordIterator(word: string): AsyncIterableIterator<number> {
     let i = 0;
-    if (this.index[word])
-      while (i < this.index[word].length) yield this.index[word][i++];
+    const list = this.index[word];
+    if (!list) return;
+    let item: Node<number> | null = null;
+    while (i === 0 || item) {
+      item = list.getAt(i);
+      if (item) yield item.data;
+      i++;
+    }
   }
   async initWord(word: string): Promise<void> {
-    if (!this.index[word]) this.index[word] = [];
+    if (!this.index[word]) this.index[word] = new LinkedList();
   }
   async resetWord(word: string): Promise<void> {
-    this.index[word] = [];
+    this.index[word] = new LinkedList();
   }
   async addWord(word: string, pageId: number): Promise<void> {
-    this.index[word].push(pageId);
+    this.index[word].insertLast(pageId);
   }
 
   async initPage(pageId: number, page: Page): Promise<void> {
@@ -90,5 +96,146 @@ export class MemoryStorage implements Storage {
   }
   async increaseSeed(): Promise<void> {
     this.seed++;
+  }
+}
+
+// Construct Single Node
+class Node<T> {
+  data: T;
+  next: Node<T> | null;
+
+  constructor(data: T, next: Node<T> | null = null) {
+    this.data = data;
+    this.next = next;
+  }
+}
+
+// Create/Get/Remove Nodes From Linked List
+class LinkedList<T> {
+  head: Node<T> | null;
+  size: number;
+
+  constructor() {
+    this.head = null;
+    this.size = 0;
+  }
+
+  // Insert first node
+  insertFirst(data: T) {
+    this.head = new Node(data, this.head);
+    this.size++;
+  }
+
+  // Insert last node
+  insertLast(data: T) {
+    let node = new Node(data);
+    let current;
+
+    // If empty, make head
+    if (!this.head) {
+      this.head = node;
+    } else {
+      current = this.head;
+
+      while (current.next) {
+        current = current.next;
+      }
+
+      current.next = node;
+    }
+
+    this.size++;
+  }
+
+  // Insert at index
+  insertAt(data: T, index: number) {
+    //  If index is out of range
+    if (index > 0 && index > this.size) {
+      return;
+    }
+
+    // If first index
+    if (index === 0) {
+      this.insertFirst(data);
+      return;
+    }
+
+    const node = new Node(data);
+    let previous: Node<T> | null;
+
+    // Set current to first
+    let current = this.head;
+    let count = 0;
+
+    while (count < index) {
+      previous = current; // Node before index
+      count++;
+      current = current!.next; // Node after index
+    }
+
+    node.next = current;
+    previous!.next = node;
+
+    this.size++;
+  }
+
+  // Get at index
+  getAt(index: number): Node<T> | null {
+    let current = this.head;
+    let count = 0;
+
+    while (current) {
+      if (count == index) {
+        return current;
+      }
+      count++;
+      current = current.next;
+    }
+
+    return null;
+  }
+
+  // Remove at index
+  removeAt(index: number) {
+    if (index > 0 && index > this.size) {
+      return;
+    }
+
+    let current = this.head;
+    let previous: Node<T> | null;
+    let count = 0;
+
+    if (!current) return;
+
+    // Remove first
+    if (index === 0) {
+      this.head = current.next;
+    } else {
+      while (count < index) {
+        count++;
+        previous = current;
+        current = current!.next;
+      }
+
+      previous!.next = current!.next;
+    }
+
+    this.size--;
+  }
+
+  // Clear list
+  clearList() {
+    this.head = null;
+    this.size = 0;
+  }
+
+  // Print list data
+  printListData() {
+    let current = this.head;
+
+    while (current) {
+      console.log(current.data);
+      current = current.next;
+    }
   }
 }

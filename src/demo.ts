@@ -8,6 +8,7 @@ import { FileStorage } from './file-storage';
 import readline from 'readline';
 import colors from 'colors/safe';
 import { BinaryFileStorage } from './binary-file-storage';
+import { MemoryStorage } from './memory-storage';
 
 /**
  * Usage:
@@ -70,9 +71,9 @@ let skipped = 0;
 
 (async () => {
   try {
-    // await fs.remove(dir);
+    await fs.remove(dir);
 
-    if (!(await fs.pathExists(dir))) {
+    if (true || !(await fs.pathExists(dir))) {
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir);
         console.log('Creating index..');
@@ -148,7 +149,7 @@ let skipped = 0;
         results
           .map(
             (item) =>
-              `${colors.cyan(item.title)}\n${item.ingress}\n  ${colors.gray(
+              `${colors.cyan(item.title)}\n${item.ingress}\n${colors.gray(
                 item.url
               )}`
           )
