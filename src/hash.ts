@@ -53,6 +53,7 @@ export class Hash {
     // hash row: [key][head offset 4 byte][tail offset 4 byte]
     const hashBuf = Buffer.alloc(this.hashRowSize);
     const keyBuf = Buffer.from(key, 'utf-8');
+    if (keyBuf.length > this.keySize) throw new Error(`Key too large: ${key}`);
 
     // copy key to hash buffer
     keyBuf.copy(hashBuf);
@@ -84,27 +85,28 @@ export class Hash {
     const fd = await this.getFileDescriptor();
 
     let { tailOffset } = await this.get(key);
+    const { hashIndex } = await this.getHashEntryMatchingKey(key);
+    const hashOffset = this.getHashOffset(hashIndex);
 
     while (true) {
       yield async (buf: Buffer) => {
         if (buf.length > this.nodeSize - 4)
           throw new Error(`Trying to write too large node`);
 
-        const offset = await this.getFreeNodeOffset();
-        await this.writeFreeNodeOffset(offset + this.nodeSize);
-        const offsetBuffer = Buffer.from(this.toBEInt32(offset));
+        const nextNodeOffset = await this.getFreeNodeOffset();
+        await this.writeFreeNodeOffset(nextNodeOffset + this.nodeSize);
+        const nextNodeOffsetBuf = Buffer.from(this.toBEInt32(nextNodeOffset));
 
-        const dataAndNext = Buffer.concat([buf, offsetBuffer]);
+        const dataAndNext = Buffer.concat([buf, nextNodeOffsetBuf]);
 
         // write node
         await fs.write(fd, dataAndNext, undefined, undefined, tailOffset);
+        tailOffset = nextNodeOffset;
 
         // write tail to hash
-        const { hashIndex } = await this.getHashEntryMatchingKey(key);
-        const hashOffset = this.getHashOffset(hashIndex);
         await fs.write(
           fd,
-          offsetBuffer,
+          nextNodeOffsetBuf,
           undefined,
           undefined,
           hashOffset + this.keySize + 4
@@ -174,6 +176,7 @@ export class Hash {
         );
         if (!hashEntryContainsKey) {
           hashIndex += (collisions + 1) ** 2;
+          hashIndex %= this.hashRows;
           if (hashIndex > this.hashRows) throw new Error('Out of bounds');
           checkNextEntry = true;
         } else checkNextEntry = false;
@@ -273,7 +276,7 @@ export class Hash {
   private async getFreeNodeOffset() {
     const buf = Buffer.alloc(4);
     await fs.read(await this.getFileDescriptor(), buf, 0, buf.length, 0);
-    return buf.readUInt32BE() + 1;
+    return buf.readUInt32BE();
   }
 
   private getHashIndexFromKey(key: string) {

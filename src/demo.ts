@@ -73,7 +73,7 @@ let skipped = 0;
   try {
     await fs.remove(dir);
 
-    if (true || !(await fs.pathExists(dir))) {
+    if (false || !(await fs.pathExists(dir))) {
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir);
         console.log('Creating index..');
