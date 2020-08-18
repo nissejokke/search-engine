@@ -85,6 +85,10 @@ export class Hash {
     const fd = await this.getFileDescriptor();
 
     let { tailOffset } = await this.get(key);
+    if (tailOffset < this.headerSize + this.hashRows * this.hashRowSize)
+      throw new Error(
+        `tailoffset ${tailOffset} for ${key} is in hash index area, not allowed`
+      );
     const { hashIndex } = await this.getHashEntryMatchingKey(key);
     const hashOffset = this.getHashOffset(hashIndex);
 
@@ -96,7 +100,6 @@ export class Hash {
         const nextNodeOffset = await this.getFreeNodeOffset();
         await this.writeFreeNodeOffset(nextNodeOffset + this.nodeSize);
         const nextNodeOffsetBuf = Buffer.from(this.toBEInt32(nextNodeOffset));
-
         const dataAndNext = Buffer.concat([buf, nextNodeOffsetBuf]);
 
         // write node
@@ -169,6 +172,7 @@ export class Hash {
       hashEntry = await this.getHashEntryByIndex(hashIndex);
       headOffset = hashEntry.readUInt32BE(this.keySize);
       tailOffset = hashEntry.readUInt32BE(this.keySize + 4);
+
       if (headOffset > 0) {
         const hashEntryContainsKey = await this.hashEntryContainsData(
           hashEntry,
@@ -177,11 +181,11 @@ export class Hash {
         if (!hashEntryContainsKey) {
           hashIndex += (collisions + 1) ** 2;
           hashIndex %= this.hashRows;
-          if (hashIndex > this.hashRows) throw new Error('Out of bounds');
           checkNextEntry = true;
         } else checkNextEntry = false;
       } else checkNextEntry = false;
     } while (checkNextEntry);
+    if (tailOffset === 0) tailOffset = headOffset;
     return { hashIndex, headOffset, tailOffset };
   }
 
@@ -276,7 +280,8 @@ export class Hash {
   private async getFreeNodeOffset() {
     const buf = Buffer.alloc(4);
     await fs.read(await this.getFileDescriptor(), buf, 0, buf.length, 0);
-    return buf.readUInt32BE();
+    const offset = buf.readUInt32BE();
+    return offset;
   }
 
   private getHashIndexFromKey(key: string) {

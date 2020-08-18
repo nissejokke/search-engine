@@ -71,7 +71,7 @@ let skipped = 0;
 
 (async () => {
   try {
-    await fs.remove(dir);
+    // await fs.remove(dir);
 
     if (false || !(await fs.pathExists(dir))) {
       if (!fs.existsSync(dir)) {

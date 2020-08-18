@@ -18,7 +18,7 @@ export class BinaryFileStorage implements Storage {
   async *getWordIterator(word: string): AsyncIterableIterator<number> {
     if (!(await this.hash.has(word))) return;
 
-    for await (const { buffer } of this.hash.getIterator(word)) {
+    for await (const { buffer, offset } of this.hash.getIterator(word)) {
       let i = 0;
       let siteId: number;
       do {
