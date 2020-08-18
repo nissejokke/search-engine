@@ -4,43 +4,21 @@ import path from 'path';
 import { Hash } from './hash';
 
 export class BinaryFileStorage implements Storage {
-  readonly headerSize: number = 4;
-  readonly wordSize: number = 64;
-  readonly hashRowSize: number = 64 + 4;
-  readonly hashRows: number = 256000;
-  readonly blockSize: number = 256;
   private hash: Hash;
-  // Not used right now:
-  // private urlToPage: Hash;
-  /**
-   * Hash
-   *
-   * Storage format:
-   * label (starts at)
-   * header (0): [next free block index]
-   * index (4):  [word 64][block index 4]
-   * ...
-   * data (256 000): [4 byte first available or 0xffffff for full][X byte data ...][next block index]
-   */
+
   constructor(public indexPath: string) {
     this.hash = new Hash({
       filePath: path.join(this.indexPath, '/word-dic'),
       keySize: 32,
       hashRows: 500000,
-      blockSize: 256,
+      nodeSize: 4,
     });
-    // this.urlToPage = new Hash({
-    //   filePath: path.join(this.indexPath, '/urls'),
-    //   keySize: 1024,
-    //   hashRows: 256000,
-    //   blockSize: 4 + 8,
-    // });
   }
 
   async *getWordIterator(word: string): AsyncIterableIterator<number> {
     if (!(await this.hash.has(word))) return;
 
-    for await (const { buffer } of this.hash.getIterator(word)) {
+    for await (const { buffer, offset } of this.hash.getIterator(word)) {
       let i = 0;
       let siteId: number;
       do {
