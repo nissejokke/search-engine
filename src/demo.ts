@@ -4,7 +4,6 @@ import fs from 'fs-extra';
 import path from 'path';
 import XmlStream from 'xml-stream';
 import { Engine } from './engine';
-import { FileStorage } from './file-storage';
 import readline from 'readline';
 import colors from 'colors/safe';
 import { BinaryFileStorage } from './binary-file-storage';
