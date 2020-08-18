@@ -1,6 +1,6 @@
 # Search engine
 
-Simple search engine with focus on performance.
+Simple full text index search engine with focus on performance.
 
 - Search single or multiple words
 - Quotes to match exact
