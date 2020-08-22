@@ -148,3 +148,4 @@ Result in 6.177ms
 - [x] Store index as binary
   - [x] Handle collisions
 - [x] Change storage for words to linked list for easier insert based on rank
+- [ ] Ranking of each page

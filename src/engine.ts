@@ -36,25 +36,16 @@ export class Engine {
   /**
    * Stop words - excluded from index
    */
-  stopWords: Record<string, boolean>;
+  stopWords: Set<string>;
 
-  constructor(public storage: Storage = new MemoryStorage()) {
-    this.stopWords = {
-      a: true,
-      an: true,
-      am: true,
-      and: true,
-      be: true,
-      have: true,
-      i: true,
-      in: true,
-      is: true,
-      of: true,
-      on: true,
-      that: true,
-      the: true,
-      to: true,
-    };
+  constructor(
+    public storage: Storage = new MemoryStorage(),
+    stopWords: string[]
+  ) {
+    this.stopWords = stopWords.reduce((dic, word) => {
+      dic.add(word);
+      return dic;
+    }, new Set<string>());
   }
 
   /**
@@ -509,6 +500,6 @@ export class Engine {
    * @param word
    */
   private isStopWord(word: string): boolean {
-    return word.length < 2 || this.stopWords[word];
+    return word.length < 2 || this.stopWords.has(word);
   }
 }

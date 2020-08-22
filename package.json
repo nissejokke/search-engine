@@ -1,13 +1,14 @@
 {
   "name": "search-engine",
   "version": "1.0.0",
-  "description": "",
+  "description": "Full text search engine",
   "main": "index.js",
   "scripts": {
     "test": "jest",
-    "demo": "ts-node -O '{\"module\":\"commonjs\"}' src/demo.ts"
+    "demo": "ts-node -O '{\"module\":\"commonjs\"}' src/demo.ts",
+    "index-size": "du -sh .index/*"
   },
-  "author": "",
+  "author": "Johan",
   "license": "ISC",
   "devDependencies": {
     "@types/fs-extra": "^9.0.1",

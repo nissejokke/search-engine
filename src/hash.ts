@@ -8,6 +8,9 @@ export class Hash {
   keySize: number; // 64;
   hashRowSize: number; // 64 + 4;
   hashRows: number; // 256000;
+  /**
+   * Size of node including pointer to next node
+   */
   nodeSize: number;
   private fd: number;
 
@@ -15,17 +18,30 @@ export class Hash {
    * Hash
    *
    * Storage format:
-   * label (starts at)
-   * header (0): [next free node byte index]
-   * index (4):  [word 64][head node 4 byte index][tail node 4 byte index]
+   * label (starts at byte)
+   * header (0): [byte offset to next free node byte index]
+   * index (4):  [<keySize> bytes][head node 4 byte index][tail node 4 byte index]
    * ...
-   * data (256 000): [4 byte data][4 byte next node index]..
+   * ... x <hashRows> times
+   * data (<headerSize> + <hashRowSize> * <hashRows>): [<nodeSize> byte data][4 byte next node index].. x repeat
    */
   constructor(
     private opts: {
+      /**
+       * File path
+       */
       filePath: string;
+      /**
+       * Key size
+       */
       keySize: number;
+      /**
+       * Max hash rows to allocate (hashRows * keySize + 8) + 4 is size of index
+       */
       hashRows: number;
+      /**
+       * Size of each node in the linked list (excluding pointer to next node)
+       */
       nodeSize: number;
     }
   ) {
@@ -37,7 +53,7 @@ export class Hash {
   }
 
   /**
-   * Initiate key
+   * Initiate key with data or empty node
    * @param key
    * @param data
    */
@@ -76,8 +92,9 @@ export class Hash {
   }
 
   /**
-   * Append data to value at key
-   * @param key
+   * Append data to value at key, adds node add end of linked list
+   * @param key key to append to
+   * @return appendIterator, buf bytes <= nodeSize bytes
    */
   async *appendIterator(
     key: string
@@ -95,7 +112,11 @@ export class Hash {
     while (true) {
       yield async (buf: Buffer) => {
         if (buf.length > this.nodeSize - 4)
-          throw new Error(`Trying to write too large node`);
+          throw new Error(
+            `Trying to write data of size ${
+              buf.length
+            } to node of max data size ${this.nodeSize - 4}`
+          );
 
         const nextNodeOffset = await this.getFreeNodeOffset();
         await this.writeFreeNodeOffset(nextNodeOffset + this.nodeSize);
@@ -189,12 +210,21 @@ export class Hash {
     return { hashIndex, headOffset, tailOffset };
   }
 
-  async hashEntryExist(key: string): Promise<boolean> {
+  /**
+   * Hash entry exist?
+   * @param key
+   */
+  private async hashEntryExist(key: string): Promise<boolean> {
     const { headOffset } = await this.getHashEntryMatchingKey(key);
     return headOffset > 0;
   }
 
-  hashEntryContainsData(hashEntry: Buffer, key: string) {
+  /**
+   * Hash entry contains key?
+   * @param hashEntry
+   * @param key
+   */
+  private hashEntryContainsData(hashEntry: Buffer, key: string) {
     const keyBuf = Buffer.from(key, 'utf-8');
 
     return (
@@ -220,7 +250,7 @@ export class Hash {
   }
 
   /**
-   * File descriptor
+   * File descriptor (cached)
    */
   private async getFileDescriptor(): Promise<number> {
     if (this.fd) return this.fd;
@@ -284,12 +314,20 @@ export class Hash {
     return offset;
   }
 
+  /**
+   * Key to hash index
+   * @param key
+   */
   private getHashIndexFromKey(key: string) {
     const hash = this.fnv32a(key);
     const hashIndex = hash % this.hashRows;
     return hashIndex;
   }
 
+  /**
+   * Hash entry at index
+   * @param hashIndex
+   */
   private async getHashEntryByIndex(hashIndex: number) {
     const hashRowOffset = this.headerSize + hashIndex * this.hashRowSize;
     const hashBuf = Buffer.alloc(this.hashRowSize);
@@ -327,12 +365,16 @@ export class Hash {
     );
   }
 
+  /**
+   * get offset to hash for index
+   * @param hashIndex
+   */
   private getHashOffset(hashIndex: number) {
     return this.headerSize + hashIndex * this.hashRowSize;
   }
 
   /**
-   * Big endian
+   * Number to 32bit big endian
    * @param num
    */
   private toBEInt32(num: number) {
@@ -360,6 +402,10 @@ export class Hash {
     return hval >>> 0;
   }
 
+  /**
+   * 32 bit FNV hash
+   * @param str
+   */
   private fnv32(str: string): number {
     const offset_basis = 2166136261; // The prime, 32 bit offset_basis = 2,166,136,261 = 0x811C9DC5.
 

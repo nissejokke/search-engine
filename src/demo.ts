@@ -10,6 +10,8 @@ import { BinaryFileStorage } from './binary-file-storage';
 import { MemoryStorage } from './memory-storage';
 
 /**
+ * Example usage of Search engine. Creates or appends index and displays search prompt.
+ *
  * Usage:
  * 1. Download https://dumps.wikimedia.org/enwiki/latest/enwiki-latest-abstract.xml.gz
  * 2. Adjust url below to enwiki-latest-abstract.xml
@@ -61,10 +63,25 @@ function parse(
   });
 }
 
+const stopWords = [
+  'a',
+  'an',
+  'am',
+  'and',
+  'be',
+  'have',
+  'i',
+  'in',
+  'is',
+  'of',
+  'on',
+  'that',
+  'the',
+  'to',
+];
 const dir = './.index';
-
 let count = 0;
-const engine = new Engine(new BinaryFileStorage(dir));
+const engine = new Engine(new BinaryFileStorage(dir), stopWords);
 const max = 10000;
 let skipped = 0;
 
@@ -135,8 +152,6 @@ let skipped = 0;
           resolve(query);
         })
       );
-
-    // console.log('by', await (await engine.search('by', 1000)).length);
 
     while (true) {
       console.log('');

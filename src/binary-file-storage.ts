@@ -3,6 +3,9 @@ import fs from 'fs-extra';
 import path from 'path';
 import { Hash } from './hash';
 
+/**
+ * File storage
+ */
 export class BinaryFileStorage implements Storage {
   private hash: Hash;
 
@@ -15,29 +18,46 @@ export class BinaryFileStorage implements Storage {
     });
   }
 
+  /**
+   * Word to pageId iterator
+   * @param word
+   */
   async *getWordIterator(word: string): AsyncIterableIterator<number> {
     if (!(await this.hash.has(word))) return;
 
     for await (const { buffer, offset } of this.hash.getIterator(word)) {
       let i = 0;
-      let siteId: number;
+      let pageId: number;
       do {
-        siteId = buffer.readUInt32BE(i);
-        if (siteId > 0) yield siteId;
+        pageId = buffer.readUInt32BE(i);
+        if (pageId > 0) yield pageId;
         i += 4;
-      } while (siteId > 0 && i < buffer.length);
+      } while (pageId > 0 && i < buffer.length);
     }
   }
 
+  /**
+   * Initiate if not already exist
+   * @param word
+   */
   async initWord(word: string): Promise<void> {
     if (await this.hash.has(word)) return;
     await this.hash.set(word);
   }
 
+  /**
+   * Reset word
+   * @param word
+   */
   async resetWord(word: string): Promise<void> {
     await this.hash.set(word);
   }
 
+  /**
+   * Add pageId to word index
+   * @param word
+   * @param pageId
+   */
   async addWord(word: string, pageId: number): Promise<void> {
     for await (const write of this.hash.appendIterator(word)) {
       const buf = Buffer.from(this.toBEInt32(pageId));
@@ -60,6 +80,11 @@ export class BinaryFileStorage implements Storage {
     return arr.buffer;
   }
 
+  /**
+   * Splits string in to chunks
+   * @param str
+   * @param chunkSize
+   */
   private divideIntoParts(str: string, chunkSize: number) {
     const parts = [];
     let i;
@@ -98,9 +123,6 @@ export class BinaryFileStorage implements Storage {
 
   async getUrlToPage(url: string): Promise<number | undefined> {
     try {
-      // for await (const it of this.urlToPage.getIterator(url)) {
-      //   return it.buffer.readUInt32BE();
-      // }
       return await fs.readJson(this.getUrlToPageFilename(url));
     } catch (err) {
       return undefined;
@@ -108,10 +130,6 @@ export class BinaryFileStorage implements Storage {
   }
 
   async setUrlToPage(url: string, pageId: number): Promise<void> {
-    // for await (const writer of this.urlToPage.appendIterator(url)) {
-    //   writer(Buffer.from(this.toBEInt32(pageId)));
-    //   break;
-    // }
     await fs.ensureFile(this.getUrlToPageFilename(url));
     await fs.writeFile(this.getUrlToPageFilename(url), JSON.stringify(pageId), {
       encoding: 'utf-8',
