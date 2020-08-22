@@ -182,6 +182,7 @@ export class Engine {
 
       const matches = words.filter((word, index) => {
         const indices = indicesForWord(word, page);
+        if (!indices) return false;
         const equals = indices[0] === index;
         return equals;
       }).length;
