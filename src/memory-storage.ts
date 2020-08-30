@@ -1,4 +1,4 @@
-import { Storage, Page } from './engine';
+import { Storage, Page } from './@types';
 
 export class MemoryStorage implements Storage {
   /**

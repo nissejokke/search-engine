@@ -1,37 +1,9 @@
 import { MemoryStorage } from './memory-storage';
+import { Storage, SearchResult, Page } from './@types';
 
-export interface Storage {
-  getWordIterator: (word: string) => AsyncIterableIterator<number>;
-  initWord: (word: string) => Promise<void>;
-  resetWord: (word: string) => Promise<void>;
-  addWord: (word: string, pageId: number) => Promise<void>;
-
-  initPage: (pageId: number, page: Page) => Promise<void>;
-  getPage: (pageId: number) => Promise<Page>;
-
-  getUrlToPage: (url: string) => Promise<number | undefined>;
-  setUrlToPage: (url: string, pageId: number) => Promise<void>;
-
-  getSeed: () => Promise<number>;
-  increaseSeed: () => Promise<void>;
-}
-
-export interface SearchResult {
-  title: string;
-  ingress: string;
-  url: string;
-}
-
-export interface Page {
-  title: string;
-  url: string;
-  words: string[];
-  /**
-   * Word index for page
-   */
-  index: Record<string, number[]>;
-}
-
+/**
+ * Search engine
+ */
 export class Engine {
   /**
    * Stop words - excluded from index
@@ -40,7 +12,7 @@ export class Engine {
 
   constructor(
     public storage: Storage = new MemoryStorage(),
-    stopWords: string[]
+    stopWords: string[] = []
   ) {
     this.stopWords = stopWords.reduce((dic, word) => {
       dic.add(word);
@@ -61,7 +33,6 @@ export class Engine {
     text: string;
     url: string;
   }): Promise<void> {
-    // const pageKey = `site:${url}`;
     const { words } = this.toWords(title + ' ' + text);
 
     const pageId = await this.storage.getUrlToPage(url);
@@ -73,7 +44,7 @@ export class Engine {
 
     const addedWordsForPage = new Set();
 
-    // word index
+    // words to add
     const addWords = words
       .map((word) => word.toLowerCase())
       .filter((word) => !this.isStopWord(word))
@@ -85,6 +56,7 @@ export class Engine {
         return word;
       });
 
+    // init words
     for (let i = 0; i < addWords.length; i++) {
       const word = addWords[i];
       if (!word) continue;
@@ -101,16 +73,19 @@ export class Engine {
       if ((pageIndex[wordLower] as any).push) pageIndex[wordLower].push(index);
     });
 
+    // init page
     await this.storage.initPage(seed, { title, url, words, index: pageIndex });
     await this.storage.increaseSeed();
   }
 
   /**
    * Free text search
-   * @param text
+   * @param text search phrase
    */
   async search(text: string, maxCount = 100): Promise<SearchResult[]> {
     const { words, quotes } = this.toWords(text);
+
+    // words with out stop words
     const wordsWithoutStopWords = words.filter(
       (word) => !this.isStopWord(word)
     );
@@ -139,14 +114,16 @@ export class Engine {
       await this.intersect(arrs, 100, isQuoteOnPage)
     );
 
+    // rank on content
     let sortedPages = await this.rankPages(wordsWithoutStopWords, pages);
 
+    // get pages and construct introduction
     return await Promise.all(
       sortedPages.slice(0, maxCount).map(async (pageId) => {
         const page = await this.storage.getPage(pageId);
         return {
           title: page.title,
-          ingress: await this.constructIngress(words, quotes, page),
+          introduction: await this.constructIntroduction(words, quotes, page),
           url: page.url,
         };
       })
@@ -204,6 +181,10 @@ export class Engine {
       );
     };
 
+    /**
+     * Score for page
+     * @param pageId
+     */
     const getScore = async (pageId: number): Promise<number> => {
       let score = 0;
       const { exact, begins, pos } = await titleEqual(pageId);
@@ -222,6 +203,7 @@ export class Engine {
       scores[pageId] = score;
     }
 
+    // sort on scores
     const sorted = pages.sort((pageA, pageB) => {
       let scoreA = scores[pageA];
       let scoreB = scores[pageB];
@@ -279,19 +261,19 @@ export class Engine {
    * @param words searched words
    * @param index page index
    */
-  private async constructIngress(
+  private async constructIntroduction(
     words: string[],
     quotes: number[],
     page: Page
   ): Promise<string> {
     /**
-     * Push word att index to ingress
-     * @param ingress ingress to append to
+     * Push word att index to introduction
+     * @param introduction introduction to append to
      * @param wordIndex index of word
      */
-    const pushAtIndex = (ingress: string[], wordIndex: number) => {
+    const pushAtIndex = (introduction: string[], wordIndex: number) => {
       const word = page.words[wordIndex];
-      if (word) ingress.push(word);
+      if (word) introduction.push(word);
     };
 
     /**
@@ -323,17 +305,17 @@ export class Engine {
       indices.splice(quotes[i], quotes[i + 1]);
     }
 
-    let ingressIndexResult: number[] = [];
+    let introductionIndexResult: number[] = [];
 
     // join quotes
-    if (quotedIndices.length) ingressIndexResult = joinArrs(quotedIndices);
+    if (quotedIndices.length) introductionIndexResult = joinArrs(quotedIndices);
 
     // join the rest
-    ingressIndexResult = ingressIndexResult.concat(joinArrs(indices));
+    introductionIndexResult = introductionIndexResult.concat(joinArrs(indices));
 
-    return ingressIndexResult
+    return introductionIndexResult
       .sort((a, b) => a - b)
-      .reduce((ingress, index, arrIndex, arr) => {
+      .reduce((introduction, index, arrIndex, arr) => {
         const getIndRelative = (relative: number) => arr[arrIndex + relative];
 
         const isFirstWord = arrIndex === 0 || index !== getIndRelative(-1) + 1;
@@ -342,23 +324,23 @@ export class Engine {
 
         // two words before word to two words after word
         if (isFirstWord) {
-          pushAtIndex(ingress, index - 2);
-          pushAtIndex(ingress, index - 1);
-          ingress.push('"-');
+          pushAtIndex(introduction, index - 2);
+          pushAtIndex(introduction, index - 1);
+          introduction.push('"-');
         }
-        pushAtIndex(ingress, index);
+        pushAtIndex(introduction, index);
         if (isLastWord) {
-          ingress.push('-"');
-          pushAtIndex(ingress, index + 1);
-          pushAtIndex(ingress, index + 2);
+          introduction.push('-"');
+          pushAtIndex(introduction, index + 1);
+          pushAtIndex(introduction, index + 2);
         }
         if (
           arrIndex < arr.length - 1 &&
           Math.abs(index - arr[arrIndex + 1]) > 1 // the two words are not right next to each other
         )
-          ingress.push('...');
+          introduction.push('...');
 
-        return ingress;
+        return introduction;
       }, [] as string[])
       .join(' ')
       .replace(/("- | -")/g, '"');
@@ -373,7 +355,8 @@ export class Engine {
   }
 
   /**
-   * Get intersection of arrays up to max count
+   * Get intersection of arrays up to max count.
+   * Intersects arrays by getting a value at the time from the array with the lowest value.
    * @param arrs
    * @param maxCount
    * @param shouldBeAdded - if defined, will be required to return true to add value to intersection result list
@@ -439,20 +422,6 @@ export class Engine {
   }
 
   /**
-   * Binary search
-   * @param arr
-   * @param value
-   */
-  private binarySearch(arr: number[], value: number): number {
-    const len = arr.length;
-    if (len === 1) return arr[0];
-    const index = Math.floor(len / 2);
-    if (arr[index] < value)
-      return this.binarySearch(arr.slice(0, index), value);
-    else return this.binarySearch(arr.slice(index), value);
-  }
-
-  /**
    * Factorize text to words
    * @param text
    * @param lowerCase
@@ -485,14 +454,6 @@ export class Engine {
       },
       { words: [] as string[], quotes: [] as number[] }
     );
-  }
-
-  /**
-   * Filter stop words from words
-   * @param words
-   */
-  private removeStopWords(words: string[]) {
-    return words.filter((word) => !this.isStopWord(word));
   }
 
   /**

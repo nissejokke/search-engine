@@ -4,14 +4,29 @@ import fs from 'fs-extra';
  * Binary file based hash table with linked list as value for each key
  */
 export class Hash {
+  /**
+   * Size of header, the header is first in file
+   */
   readonly headerSize: number = 4;
-  keySize: number; // 64;
-  hashRowSize: number; // 64 + 4;
-  hashRows: number; // 256000;
+  /**
+   * Bytes reserved for each key
+   */
+  keySize: number;
+  /**
+   * Hash row size (keySize + head offset (4) + tail offset (4))
+   */
+  hashRowSize: number;
+  /**
+   * Number of hash rows
+   */
+  hashRows: number;
   /**
    * Size of node including pointer to next node
    */
   nodeSize: number;
+  /**
+   * File descriptor for hash file
+   */
   private fd: number;
 
   /**

@@ -57,16 +57,20 @@ describe('Planets', () => {
     const result = await engine.search('brightest');
     expect(result).toHaveLength(1);
     expect(result[0].url).toBe('https://en.wikipedia.org/wiki/Jupiter');
-    expect(result[0].ingress).toContain('of the "brightest" objects visible');
-    expect(result[0].ingress).toContain('the third "brightest" natural object');
+    expect(result[0].introduction).toContain(
+      'of the "brightest" objects visible'
+    );
+    expect(result[0].introduction).toContain(
+      'the third "brightest" natural object'
+    );
   });
   test('Two results', async () => {
     const result = await engine.search('giant');
     expect(result).toHaveLength(2);
     expect(result[0].url).toBe('https://en.wikipedia.org/wiki/Jupiter');
     expect(result[1].url).toBe('https://en.wikipedia.org/wiki/Saturn');
-    expect(result[0].ingress).toContain('gas "giant"');
-    expect(result[1].ingress).toContain('gas "giant"');
+    expect(result[0].introduction).toContain('gas "giant"');
+    expect(result[1].introduction).toContain('gas "giant"');
   });
   test('Multiple hits', async () => {
     const result = await engine.search('Solar');
@@ -76,7 +80,7 @@ describe('Planets', () => {
     const result = await engine.search('ancient civilizations');
     expect(result).toHaveLength(1);
     expect(result[0].url).toBe('https://en.wikipedia.org/wiki/Jupiter');
-    expect(result[0].ingress).toBe(
+    expect(result[0].introduction).toBe(
       'known to "ancient civilizations" since before'
     );
   });
@@ -85,7 +89,7 @@ describe('Planets', () => {
     expect(result).toHaveLength(1);
 
     expect(result[0].url).toBe('https://en.wikipedia.org/wiki/Saturn');
-    expect(result[0].ingress).toBe('is the "sixth planet" from the');
+    expect(result[0].introduction).toBe('is the "sixth planet" from the');
   });
 
   test('Quotes no matches', async () => {
@@ -97,28 +101,28 @@ describe('Planets', () => {
     const result = await engine.search('"after Jupiter"');
     expect(result).toHaveLength(1);
     expect(result[0].url).toBe('https://en.wikipedia.org/wiki/Saturn');
-    expect(result[0].ingress).toContain('after Jupiter');
+    expect(result[0].introduction).toContain('after Jupiter');
   });
 
   test('Quotes + suffix word', async () => {
     const result = await engine.search('"from the Sun" Moon');
     expect(result).toHaveLength(1);
     expect(result[0].url).toBe('https://en.wikipedia.org/wiki/Jupiter');
-    expect(result[0].ingress).toMatch(/"from the Sun".*?"Moon"/);
+    expect(result[0].introduction).toMatch(/"from the Sun".*?"Moon"/);
   });
 
   test('Quotes + prefix word occuring after, incorrect case', async () => {
     const result = await engine.search('moon "from the Sun"'); // moon incorrect case
     expect(result).toHaveLength(1);
     expect(result[0].url).toBe('https://en.wikipedia.org/wiki/Jupiter');
-    expect(result[0].ingress).toMatch(/"from the Sun".*?"Moon"/);
+    expect(result[0].introduction).toMatch(/"from the Sun".*?"Moon"/);
   });
 
   test('Quotes + prefix word ocurring first, incorrect case', async () => {
     const result = await engine.search('fifth "from the sun"'); // sun incorrect case
     expect(result).toHaveLength(1);
     expect(result[0].url).toBe('https://en.wikipedia.org/wiki/Jupiter');
-    expect(result[0].ingress).toMatch(/"fifth".*"from the Sun"/);
+    expect(result[0].introduction).toMatch(/"fifth".*"from the Sun"/);
   });
 
   test('Quotes incorrect case', async () => {
@@ -229,11 +233,11 @@ test('should get results', async () => {
 
   const result = await engine.search('"carl friedrich"');
   expect(result).toHaveLength(6);
-  expect(result[0].ingress).toContain('by "Carl Friedrich" Gauss in');
-  expect(result[1].ingress).toContain(
+  expect(result[0].introduction).toContain('by "Carl Friedrich" Gauss in');
+  expect(result[1].introduction).toContain(
     'mathematician "Carl Friedrich" Gauss 1777'
   );
-  expect(result[5].ingress).toContain('"CARL FrieDricH"');
+  expect(result[5].introduction).toContain('"CARL FrieDricH"');
 });
 
 describe('Rank Haber', () => {

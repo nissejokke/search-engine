@@ -10,7 +10,7 @@ import { BinaryFileStorage } from './binary-file-storage';
 import { MemoryStorage } from './memory-storage';
 
 /**
- * Example usage of Search engine. Creates or appends index and displays search prompt.
+ * Example usage of Search engine. Creates index of it does'nt exist loads it and displays search prompt.
  *
  * Usage:
  * 1. Download https://dumps.wikimedia.org/enwiki/latest/enwiki-latest-abstract.xml.gz
@@ -163,7 +163,7 @@ let skipped = 0;
         results
           .map(
             (item) =>
-              `${colors.cyan(item.title)}\n${item.ingress}\n${colors.gray(
+              `${colors.cyan(item.title)}\n${item.introduction}\n${colors.gray(
                 item.url
               )}`
           )

@@ -1,16 +1,23 @@
-import { Storage, Page } from './engine';
+import { Storage, Page } from './@types';
 import fs from 'fs-extra';
 import path from 'path';
 import { Hash } from './hash';
 
 /**
- * File storage
+ * Binary file storage.
+ * Stores:
+ *  - words index in hash table with linked list values.
+ *  - pages as files
+ *  - url to page index as files
  */
 export class BinaryFileStorage implements Storage {
-  private hash: Hash;
+  /**
+   * Word index
+   */
+  private wordHash: Hash;
 
   constructor(public indexPath: string) {
-    this.hash = new Hash({
+    this.wordHash = new Hash({
       filePath: path.join(this.indexPath, '/word-dic'),
       keySize: 32,
       hashRows: 500000,
@@ -23,9 +30,9 @@ export class BinaryFileStorage implements Storage {
    * @param word
    */
   async *getWordIterator(word: string): AsyncIterableIterator<number> {
-    if (!(await this.hash.has(word))) return;
+    if (!(await this.wordHash.has(word))) return;
 
-    for await (const { buffer, offset } of this.hash.getIterator(word)) {
+    for await (const { buffer } of this.wordHash.getIterator(word)) {
       let i = 0;
       let pageId: number;
       do {
@@ -41,8 +48,8 @@ export class BinaryFileStorage implements Storage {
    * @param word
    */
   async initWord(word: string): Promise<void> {
-    if (await this.hash.has(word)) return;
-    await this.hash.set(word);
+    if (await this.wordHash.has(word)) return;
+    await this.wordHash.set(word);
   }
 
   /**
@@ -50,7 +57,7 @@ export class BinaryFileStorage implements Storage {
    * @param word
    */
   async resetWord(word: string): Promise<void> {
-    await this.hash.set(word);
+    await this.wordHash.set(word);
   }
 
   /**
@@ -59,17 +66,17 @@ export class BinaryFileStorage implements Storage {
    * @param pageId
    */
   async addWord(word: string, pageId: number): Promise<void> {
-    for await (const write of this.hash.appendIterator(word)) {
+    for await (const write of this.wordHash.appendIterator(word)) {
       const buf = Buffer.from(this.toBEInt32(pageId));
       await write(buf);
       break;
     }
   }
 
-  // /**
-  //  * Big endian
-  //  * @param num
-  //  */
+  /**
+   * Number to int32 big endian
+   * @param num
+   */
   private toBEInt32(num: number) {
     const arr = new Uint8Array([
       (num & 0xff000000) >> 24,
@@ -85,7 +92,7 @@ export class BinaryFileStorage implements Storage {
    * @param str
    * @param chunkSize
    */
-  private divideIntoParts(str: string, chunkSize: number) {
+  private divideIntoParts(str: string, chunkSize: number): string[] {
     const parts = [];
     let i;
     const partsToDivideInto = Math.floor(str.length / chunkSize);
@@ -96,18 +103,29 @@ export class BinaryFileStorage implements Storage {
     return parts;
   }
 
-  // pages
-
+  /**
+   * Init page
+   * @param pageId
+   * @param page
+   */
   async initPage(pageId: number, page: Page): Promise<void> {
     const file = this.getPageFilename(pageId);
     await fs.ensureFile(file);
     await fs.writeFile(file, JSON.stringify(page), { encoding: 'utf-8' });
   }
 
+  /**
+   * Get page
+   * @param pageId
+   */
   async getPage(pageId: number): Promise<Page> {
     return fs.readJson(this.getPageFilename(pageId));
   }
 
+  /**
+   * Page file path
+   * @param pageId
+   */
   private getPageFilename(pageId: number): string {
     const filename = pageId.toString();
     return path.join(
@@ -119,8 +137,10 @@ export class BinaryFileStorage implements Storage {
     );
   }
 
-  // url to page
-
+  /**
+   * Url to pageId
+   * @param url
+   */
   async getUrlToPage(url: string): Promise<number | undefined> {
     try {
       return await fs.readJson(this.getUrlToPageFilename(url));
@@ -129,6 +149,11 @@ export class BinaryFileStorage implements Storage {
     }
   }
 
+  /**
+   * Set pageId for url
+   * @param url
+   * @param pageId
+   */
   async setUrlToPage(url: string, pageId: number): Promise<void> {
     await fs.ensureFile(this.getUrlToPageFilename(url));
     await fs.writeFile(this.getUrlToPageFilename(url), JSON.stringify(pageId), {
@@ -136,6 +161,10 @@ export class BinaryFileStorage implements Storage {
     });
   }
 
+  /**
+   * Get filename for url to pageId
+   * @param url
+   */
   private getUrlToPageFilename(url: string) {
     const filename = Buffer.from(url).toString('base64');
     return path.join(
@@ -147,7 +176,9 @@ export class BinaryFileStorage implements Storage {
     );
   }
 
-  // seed
+  /**
+   * Word seed
+   */
   async getSeed(): Promise<number> {
     try {
       return await fs.readJson(this.getSeedFilename());
@@ -156,6 +187,9 @@ export class BinaryFileStorage implements Storage {
     }
   }
 
+  /**
+   * Increase word seed
+   */
   async increaseSeed(): Promise<void> {
     let seed = await this.getSeed();
     seed++;
@@ -165,7 +199,10 @@ export class BinaryFileStorage implements Storage {
     });
   }
 
-  private getSeedFilename() {
+  /**
+   * Get seed filepath
+   */
+  private getSeedFilename(): string {
     const filename = 'seed';
     return path.join(this.indexPath, filename);
   }
