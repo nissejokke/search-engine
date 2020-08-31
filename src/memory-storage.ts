@@ -65,7 +65,10 @@ export class MemoryStorage implements Storage {
     this.index[word] = new LinkedList();
   }
   async addWord(word: string, pageId: number): Promise<void> {
-    this.index[word].insertLast(pageId);
+    const hash = this.index[word];
+    const result = hash.findLast((val) => val < pageId);
+    if (result) hash.insertAt(result?.index, pageId);
+    else hash.insertLast(pageId);
   }
 
   async initPage(pageId: number, page: Page): Promise<void> {
@@ -237,5 +240,35 @@ class LinkedList<T> {
       console.log(current.data);
       current = current.next;
     }
+  }
+
+  find(fn: (val: T, index?: number) => boolean): Node<T> | null {
+    let node = this.head;
+    while (node) {
+      let i = 0;
+      if (fn(node.data, i)) return node;
+      node = node.next;
+      i++;
+    }
+    return null;
+  }
+
+  /**
+   * Find last node where fn() returns true
+   * @param fn
+   */
+  findLast(
+    fn: (val: T, index?: number) => boolean
+  ): { node: Node<T>; index: number } | null {
+    let node = this.head;
+    let found: Node<T> | null = null;
+    while (node) {
+      let i = 0;
+      if (fn(node.data, i)) found = node;
+      else if (found) return { node: found, index: i };
+      node = node.next;
+      i++;
+    }
+    return null;
   }
 }

@@ -28,10 +28,12 @@ export class Engine {
     title,
     text,
     url,
+    rank,
   }: {
     title: string;
     text: string;
     url: string;
+    rank: number;
   }): Promise<void> {
     const { words } = this.toWords(title + ' ' + text);
 
