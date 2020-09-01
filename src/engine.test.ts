@@ -40,6 +40,7 @@ describe('Planets', () => {
       visible shadows,[19] and is on average the third-brightest natural object 
       in the night sky after the Moon and Venus.`,
       url: 'https://en.wikipedia.org/wiki/Jupiter',
+      rank: 0,
     });
     await engine.add({
       title: 'Saturn',
@@ -51,6 +52,7 @@ describe('Planets', () => {
         god of wealth and agriculture; its astronomical symbol (♄) represents 
         the god´s sickle.`,
       url: 'https://en.wikipedia.org/wiki/Saturn',
+      rank: 1,
     });
   });
   test('Single hit', async () => {
@@ -142,6 +144,7 @@ test('Should not match', async () => {
             from other fossil fuels, such as coal or natural gas, 
             or renewable sources such as maize, palm fruit or sugar cane.`,
     url: 'https://en.wikipedia.org/wiki/Petrochemical',
+    rank: 1000000,
   });
 
   const result = await engine.search('from country he');
@@ -228,6 +231,7 @@ test('should get results', async () => {
       title: text.url.replace('_', ' '),
       text: text.text,
       url: text.url,
+      rank: i,
     });
   }
 
@@ -243,7 +247,14 @@ test('should get results', async () => {
 describe('Rank Haber', () => {
   let engine: Engine;
   beforeEach(async () => {
-    engine = new Engine();
+    engine = new Engine({
+      rankWeights: {
+        titleExactMatch: 10,
+        titleBegins: 5,
+        titleContainsInBeginning: 1,
+        urlContains: 1,
+      },
+    });
     // hackapedia articles is not as good as wikipedia, they have not as nice urls
     await engine.add({
       title: 'Process',
@@ -251,6 +262,7 @@ describe('Rank Haber', () => {
       produce a result; it may occur once-only or be recurrent 
       or periodic.`,
       url: 'https://hackapedia.org/?id=12345',
+      rank: 0,
     });
     await engine.add({
       title: 'Process',
@@ -258,6 +270,7 @@ describe('Rank Haber', () => {
       produce a result; it may occur once-only or be recurrent 
       or periodic.`,
       url: 'https://en.wikipedia.org/wiki/Process',
+      rank: 1,
     });
     await engine.add({
       title: 'Haber',
@@ -265,6 +278,7 @@ describe('Rank Haber', () => {
       old German is "oat". The cereal is now in German called "Hafer".
       The process of making is ....`,
       url: 'https://en.wikipedia.org/wiki/Haber',
+      rank: 2,
     });
     await engine.add({
       title: 'Haber process',
@@ -272,6 +286,7 @@ describe('Rank Haber', () => {
             is an artificial nitrogen fixation process and is the main 
             industrial procedure for the production of ammonia today.`,
       url: 'https://hackapedia.org/?id=4567&title=Haber',
+      rank: 3,
     });
     await engine.add({
       title: 'Haber process',
@@ -279,6 +294,7 @@ describe('Rank Haber', () => {
             is an artificial nitrogen fixation process and is the main 
             industrial procedure for the production of ammonia today.`,
       url: 'https://en.wikipedia.org/wiki/Haber_process',
+      rank: 4,
     });
   });
   test('Process', async () => {
@@ -306,16 +322,19 @@ describe('Rank Star', () => {
       title: 'Technology in Star Trek',
       text: `The technology in Star Trek has borrowed many ideas from the scientific world. Episodes often contain technologies named after real-world scientific phenomena, such as tachyon beams, baryon sweeps, quantum slipstream drives, and photon torpedoes. Some of the technologies created for the Star Trek universe were done so out of financial necessity. For instance, the transporter was created because the limited budget of Star Trek: The Original Series (TOS) in the 1960s did not allow expensive shots of spaceships landing on planets.[1][page needed]`,
       url: 'https://en.wikipedia.org/wiki/Technology_in_Star_Trek',
+      rank: 100000,
     });
     await engine.add({
       title: 'Star Trek: The Original Series',
       text: `Star Trek is an American science-fiction television series created by Gene Roddenberry that follows the adventures of the starship USS Enterprise (NCC-1701) and its crew. It later acquired the retronym of Star Trek: The Original Series (TOS) to distinguish the show within the media franchise that it began.`,
       url: 'https://en.wikipedia.org/wiki/Star_Trek:_The_Original_Series',
+      rank: 1000,
     });
     await engine.add({
       title: 'Star',
       text: `A star is an astronomical object consisting of a luminous spheroid of plasma held together by its own gravity. The nearest star to Earth is the Sun. Many other stars are visible to the naked eye from Earth during the night, appearing as a multitude of fixed luminous points in the sky due to their immense distance from Earth. Historically, the most prominent stars were grouped into constellations and asterisms, the brightest of which gained proper names. Astronomers have assembled star catalogues that identify the known stars and provide standardized stellar designations. The observable Universe contains an estimated 1×1024 stars,[1][2] but most are invisible to the naked eye from Earth, including all stars outside our galaxy, the Milky Way.`,
       url: 'https://en.wikipedia.org/wiki/Star',
+      rank: 10,
     });
   });
   test('Star', async () => {

@@ -81,8 +81,9 @@ const stopWords = [
 ];
 const dir = './.index';
 let count = 0;
-const engine = new Engine(new BinaryFileStorage(dir), stopWords);
-const max = 10000;
+// const engine = new Engine(new BinaryFileStorage(dir), stopWords);
+const engine = new Engine(new MemoryStorage(), stopWords);
+const max = 1000;
 let skipped = 0;
 
 (async () => {
@@ -126,6 +127,7 @@ let skipped = 0;
             title: item.title.replace('Wikipedia: ', ''),
             text: item.abstract,
             url: item.url,
+            rank: count,
           });
         } catch (err) {
           console.error(`Failed to add page to index: ${item.url}: ${err}`);
@@ -139,7 +141,7 @@ let skipped = 0;
     }
 
     console.log('');
-    console.log(await engine.storage.getSeed(), 'pages loaded');
+    console.log(await engine.storage.getCount(), count, 'pages loaded');
 
     const rl = readline.createInterface({
       input: process.stdin,

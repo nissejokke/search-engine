@@ -10,8 +10,9 @@ export interface Storage {
   getUrlToPage: (url: string) => Promise<number | undefined>;
   setUrlToPage: (url: string, pageId: number) => Promise<void>;
 
-  getSeed: () => Promise<number>;
-  increaseSeed: () => Promise<void>;
+  getSeed: (rank: number) => Promise<number>;
+  //   increaseSeed: () => Promise<void>;
+  getCount: () => Promise<number>;
 }
 
 export interface SearchResult {

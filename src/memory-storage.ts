@@ -4,7 +4,8 @@ export class MemoryStorage implements Storage {
   /**
    * Page seed
    */
-  seed: number;
+  // seed: number;
+  count: number;
 
   /**
    * Word to page index
@@ -44,7 +45,7 @@ export class MemoryStorage implements Storage {
     this.index = {};
     this.pages = {};
     this.urlToPage = {};
-    this.seed = 0; // so that page files can be broken up in directories with two digits
+    this.count = 0;
   }
 
   async *getWordIterator(word: string): AsyncIterableIterator<number> {
@@ -52,6 +53,7 @@ export class MemoryStorage implements Storage {
     const list = this.index[word];
     if (!list) return;
     let item: Node<number> | null = null;
+
     while (i === 0 || item) {
       item = list.getAt(i);
       if (item) yield item.data;
@@ -65,14 +67,16 @@ export class MemoryStorage implements Storage {
     this.index[word] = new LinkedList();
   }
   async addWord(word: string, pageId: number): Promise<void> {
+    if (this.pages[pageId]) throw new Error(`pageId ${pageId} already taken`);
     const hash = this.index[word];
-    const result = hash.findLast((val) => val < pageId);
-    if (result) hash.insertAt(result?.index, pageId);
-    else hash.insertLast(pageId);
+    const index = hash.findIndexToInsertAt(pageId);
+    hash.insertAt(pageId, index);
   }
 
   async initPage(pageId: number, page: Page): Promise<void> {
     const { title, url, words, index } = page;
+    if (!this.pages[pageId]) this.count++;
+
     this.pages[pageId] = {
       title,
       url,
@@ -94,11 +98,17 @@ export class MemoryStorage implements Storage {
   }
 
   // seed
-  async getSeed(): Promise<number> {
-    return this.seed;
+  async getSeed(rank: number): Promise<number> {
+    while (await this.getPage(rank)) rank--;
+    if (rank < 0) throw new Error(`Rank <= 0`);
+    return rank;
   }
-  async increaseSeed(): Promise<void> {
-    this.seed++;
+
+  // async increaseSeed(): Promise<void> {
+  //   this.seed++;
+  // }
+  async getCount(): Promise<number> {
+    return this.count;
   }
 }
 
@@ -237,9 +247,18 @@ class LinkedList<T> {
     let current = this.head;
 
     while (current) {
-      console.log(current.data);
       current = current.next;
     }
+  }
+
+  findIndexToInsertAt(val: T): number {
+    let node = this.head;
+    let i = 0;
+    while (node && val > node.data) {
+      node = node.next;
+      i++;
+    }
+    return i;
   }
 
   find(fn: (val: T, index?: number) => boolean): Node<T> | null {
@@ -254,10 +273,10 @@ class LinkedList<T> {
   }
 
   /**
-   * Find last node where fn() returns true
+   * Find until fn() returns false, then return previous node
    * @param fn
    */
-  findLast(
+  findUntil(
     fn: (val: T, index?: number) => boolean
   ): { node: Node<T>; index: number } | null {
     let node = this.head;
