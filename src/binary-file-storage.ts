@@ -73,6 +73,10 @@ export class BinaryFileStorage implements Storage {
     }
   }
 
+  async getCount(): Promise<number> {
+    return 0;
+  }
+
   /**
    * Number to int32 big endian
    * @param num
@@ -179,25 +183,23 @@ export class BinaryFileStorage implements Storage {
   /**
    * Word seed
    */
-  async getSeed(): Promise<number> {
-    try {
-      return await fs.readJson(this.getSeedFilename());
-    } catch (err) {
-      return 1;
-    }
+  async getSeed(rank: number): Promise<number> {
+    while (await this.getPage(rank)) rank--;
+    if (rank < 0) throw new Error(`Rank <= 0`);
+    return rank;
   }
 
   /**
    * Increase word seed
    */
-  async increaseSeed(): Promise<void> {
-    let seed = await this.getSeed();
-    seed++;
-    await fs.ensureFile(this.getSeedFilename());
-    await fs.writeFile(this.getSeedFilename(), JSON.stringify(seed), {
-      encoding: 'utf-8',
-    });
-  }
+  // async increaseSeed(): Promise<void> {
+  //   let seed = await this.getSeed();
+  //   seed++;
+  //   await fs.ensureFile(this.getSeedFilename());
+  //   await fs.writeFile(this.getSeedFilename(), JSON.stringify(seed), {
+  //     encoding: 'utf-8',
+  //   });
+  // }
 
   /**
    * Get seed filepath
