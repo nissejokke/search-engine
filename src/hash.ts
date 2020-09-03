@@ -106,6 +106,12 @@ export class Hash {
     await this.writeNode(headOffset, buf, 0);
   }
 
+  /**
+   * Insert value at linked list position at key
+   * @param key
+   * @param index
+   * @param buf
+   */
   async insertAt(key: string, index: number, buf: Buffer): Promise<void> {
     if (index === 0) {
       return await this.insertFirst(key, buf);
@@ -115,10 +121,8 @@ export class Hash {
     const headData = await this.getNode(headOffset);
 
     interface Node {
-      // index: number;
       offset: number;
       buffer: Buffer;
-      // next: number;
     }
 
     let node: Node;
@@ -137,7 +141,7 @@ export class Hash {
       index: currIndex,
       offset: currOffset,
       buffer: currBuffer,
-    } of this.getIterator(key)) {
+    } of this.getIterator(key, true)) {
       if (currIndex === 0) {
         continue;
       }
@@ -155,9 +159,13 @@ export class Hash {
     await this.writeNode(previous!.offset, previous!.buffer, node.offset);
   }
 
+  /**
+   * Insert value into linked list at first position
+   * @param key
+   * @param buf
+   */
   async insertFirst(key: string, buf: Buffer): Promise<void> {
     let { headOffset } = await this.get(key);
-
     const nextNodeOffset = await this.getAndIncreateFreeNodeOffset();
 
     // write new node, points to old headoffset
@@ -166,30 +174,20 @@ export class Hash {
     await this.writeHashEntryHeadOffset(key, nextNodeOffset);
   }
 
-  async writeHashEntryHeadOffset(key: string, offset: number) {
-    const { hashIndex } = await this.getHashEntryMatchingKey(key);
-    const hashOffset = this.getHashOffset(hashIndex);
-    // write new head to hash
-    await fs.write(
-      await this.getFileDescriptor(),
-      Buffer.from(Hash.toBEInt32(offset)),
-      undefined,
-      undefined,
-      hashOffset + this.keySize
-    );
-  }
+  /**
+   * Appends value to linked list at last position
+   * @param key
+   * @param buf
+   */
+  // async appendLast(key: string, buf: Buffer): Promise<void> {
+  //   let { tailOffset } = await this.get(key);
+  //   const nextNodeOffset = await this.getAndIncreateFreeNodeOffset();
 
-  async getAndIncreateFreeNodeOffset() {
-    const nextNodeOffset = await this.getFreeNodeOffset();
-    await this.writeFreeNodeOffset(nextNodeOffset + this.nodeSize);
-    return nextNodeOffset;
-  }
-
-  async getNodeNextOffset(offset: number) {
-    let next = Buffer.alloc(4);
-    await fs.read(this.fd, next, offset + this.nodeSize - 4, 0, null);
-    return next.readInt32BE();
-  }
+  //   // write new node, points to old headoffset
+  //   await this.writeNode(tailOffset, buf, nextNodeOffset);
+  //   // write new headoffset
+  //   await this.writeHashEntryTailOffset(key, nextNodeOffset);
+  // }
 
   /**
    * Append data to value at key, adds node add end of linked list
@@ -262,7 +260,8 @@ export class Hash {
    * @param key
    */
   async *getIterator(
-    key: string
+    key: string,
+    includeTrailingEmpyNode = false
   ): AsyncIterableIterator<{ buffer: Buffer; offset: number; index: number }> {
     let headOffset: number = -1;
     let block: Buffer = Buffer.alloc(0);
@@ -277,13 +276,73 @@ export class Hash {
       }
 
       block = await this.getNode(headOffset);
-      // if (block.readUInt32BE(this.nodeSize - 4) !== 0)
-      yield {
-        buffer: block.slice(0, this.nodeSize - 4),
-        offset: headOffset,
-        index,
-      };
+      // only include last empty node if should
+      if (
+        includeTrailingEmpyNode ||
+        (!includeTrailingEmpyNode &&
+          block.readUInt32BE(this.nodeSize - 4) !== 0)
+      )
+        yield {
+          buffer: block.slice(0, this.nodeSize - 4),
+          offset: headOffset,
+          index,
+        };
     }
+  }
+
+  /**
+   * Write head offset value for key
+   * @param key
+   * @param headOffset
+   */
+  async writeHashEntryHeadOffset(key: string, headOffset: number) {
+    const { hashIndex } = await this.getHashEntryMatchingKey(key);
+    const hashOffset = this.getHashOffset(hashIndex);
+    // write new head to hash
+    await fs.write(
+      await this.getFileDescriptor(),
+      Buffer.from(Hash.toBEInt32(headOffset)),
+      undefined,
+      undefined,
+      hashOffset + this.keySize
+    );
+  }
+
+  /**
+   * Write head offset value for key
+   * @param key
+   * @param tailOffset
+   */
+  async writeHashEntryTailOffset(key: string, tailOffset: number) {
+    const { hashIndex } = await this.getHashEntryMatchingKey(key);
+    const hashOffset = this.getHashOffset(hashIndex);
+    // write new head to hash
+    await fs.write(
+      await this.getFileDescriptor(),
+      Buffer.from(Hash.toBEInt32(tailOffset)),
+      undefined,
+      undefined,
+      hashOffset + this.keySize + 4
+    );
+  }
+
+  /**
+   * Allocate new node and return offset to it
+   */
+  async getAndIncreateFreeNodeOffset() {
+    const nextNodeOffset = await this.getFreeNodeOffset();
+    await this.writeFreeNodeOffset(nextNodeOffset + this.nodeSize);
+    return nextNodeOffset;
+  }
+
+  /**
+   * Get next value of node at offset
+   * @param offset
+   */
+  async getNodeNextOffset(offset: number) {
+    let next = Buffer.alloc(4);
+    await fs.read(this.fd, next, offset + this.nodeSize - 4, 0, null);
+    return next.readInt32BE();
   }
 
   /**

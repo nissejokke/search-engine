@@ -82,7 +82,7 @@ const stopWords = [
 const dir = './.index';
 let count = 0;
 // const engine = new Engine(new BinaryFileStorage(dir), stopWords);
-const engine = new Engine(new MemoryStorage(), stopWords);
+const engine = new Engine({ storage: new MemoryStorage(), stopWords });
 const max = 1000;
 let skipped = 0;
 

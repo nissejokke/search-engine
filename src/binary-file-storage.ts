@@ -37,7 +37,7 @@ export class BinaryFileStorage implements Storage {
       let pageId: number;
       do {
         pageId = buffer.readUInt32BE(i);
-        if (pageId > 0) yield pageId;
+        // if (pageId > 0) yield pageId;
         i += 4;
       } while (pageId > 0 && i < buffer.length);
     }
