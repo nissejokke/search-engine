@@ -202,24 +202,4 @@ export class BinaryFileStorage implements Storage {
     if (rank < 0) throw new Error(`Rank <= 0`);
     return rank;
   }
-
-  /**
-   * Increase word seed
-   */
-  // async increaseSeed(): Promise<void> {
-  //   let seed = await this.getSeed();
-  //   seed++;
-  //   await fs.ensureFile(this.getSeedFilename());
-  //   await fs.writeFile(this.getSeedFilename(), JSON.stringify(seed), {
-  //     encoding: 'utf-8',
-  //   });
-  // }
-
-  /**
-   * Get seed filepath
-   */
-  private getSeedFilename(): string {
-    const filename = 'seed';
-    return path.join(this.indexPath, filename);
-  }
 }

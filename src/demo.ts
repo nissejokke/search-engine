@@ -81,9 +81,16 @@ const stopWords = [
 ];
 const dir = './.index';
 let count = 0;
-// const engine = new Engine(new BinaryFileStorage(dir), stopWords);
-const engine = new Engine({ storage: new MemoryStorage(), stopWords });
-const max = 1000;
+const engine = new Engine({
+  storage: new BinaryFileStorage({
+    indexPath: dir,
+    wordSizeBytes: 32,
+    uniqueWords: 500000,
+  }),
+  stopWords,
+});
+// const engine = new Engine({ storage: new MemoryStorage(), stopWords });
+const max = 10000;
 let skipped = 0;
 
 (async () => {

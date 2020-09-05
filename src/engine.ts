@@ -119,7 +119,7 @@ export class Engine {
       const page = await this.storage.getPage(pageId);
       for (let i = 0; i < quotes.length; i += 2) {
         const quotedWords = words.slice(quotes[i], quotes[i + 1]);
-        if (await this.isAdjecentWords(quotedWords, page)) return true;
+        if (await this.isAdjecentWords(quotedWords, page!)) return true;
       }
       return false;
     };
@@ -140,7 +140,7 @@ export class Engine {
     // get pages and construct introduction
     return await Promise.all(
       sortedPages.slice(0, maxCount).map(async (pageId) => {
-        const page = await this.storage.getPage(pageId);
+        const page = (await this.storage.getPage(pageId)) as Page;
         return {
           title: page.title,
           introduction: await this.constructIntroduction(words, quotes, page),
@@ -169,13 +169,13 @@ export class Engine {
       const page = await this.storage.getPage(pageId);
 
       const matches = words.filter((word, index) => {
-        const indices = indicesForWord(word, page);
+        const indices = indicesForWord(word, page!);
         if (!indices) return false;
         const equals = indices[0] === index;
         return equals;
       }).length;
 
-      const titleWords = this.toWords(page.title, true).words;
+      const titleWords = this.toWords(page!.title, true).words;
 
       return {
         exact: matches === titleWords.length,
@@ -214,7 +214,7 @@ export class Engine {
       else if (begins) score += this.rankWeights.titleBegins;
       //5;
       else if (pos < 3) score += this.rankWeights.titleContainsInBeginning; //1;
-      if (urlMatch((await this.storage.getPage(pageId)).url))
+      if (urlMatch((await this.storage.getPage(pageId))!.url))
         score += this.rankWeights.urlContains; //1;
       return score;
     };
