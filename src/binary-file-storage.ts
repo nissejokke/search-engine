@@ -3,6 +3,12 @@ import fs from 'fs-extra';
 import path from 'path';
 import { Hash } from './hash';
 
+export interface BinaryFileStorageProps {
+  indexPath: string;
+  wordSizeBytes: number;
+  uniqueWords: number;
+}
+
 /**
  * Binary file storage.
  * Stores:
@@ -16,11 +22,14 @@ export class BinaryFileStorage implements Storage {
    */
   private wordHash: Hash;
 
-  constructor(public indexPath: string) {
+  private indexPath: string;
+
+  constructor(public props: BinaryFileStorageProps) {
+    this.indexPath = props.indexPath;
     this.wordHash = new Hash({
       filePath: path.join(this.indexPath, '/word-dic'),
-      keySize: 32,
-      hashRows: 500000,
+      keySize: this.props.uniqueWords,
+      hashRows: this.props.uniqueWords,
       nodeSize: 4,
     });
   }
@@ -37,7 +46,7 @@ export class BinaryFileStorage implements Storage {
       let pageId: number;
       do {
         pageId = buffer.readUInt32BE(i);
-        // if (pageId > 0) yield pageId;
+        if (pageId > 0) yield pageId;
         i += 4;
       } while (pageId > 0 && i < buffer.length);
     }
@@ -66,11 +75,12 @@ export class BinaryFileStorage implements Storage {
    * @param pageId
    */
   async addWord(word: string, pageId: number): Promise<void> {
-    for await (const write of this.wordHash.appendIterator(word)) {
-      const buf = Buffer.from(this.toBEInt32(pageId));
-      await write(buf);
-      break;
-    }
+    if (await this.getPage(pageId))
+      throw new Error(`pageId ${pageId} already taken`);
+
+    const buf = Buffer.from(this.toBEInt32(pageId));
+    const index = await this.wordHash.findIndexToInsertSortedAt(word, buf);
+    await this.wordHash.insertAt(word, index, buf);
   }
 
   async getCount(): Promise<number> {
@@ -122,8 +132,12 @@ export class BinaryFileStorage implements Storage {
    * Get page
    * @param pageId
    */
-  async getPage(pageId: number): Promise<Page> {
-    return fs.readJson(this.getPageFilename(pageId));
+  async getPage(pageId: number): Promise<Page | null> {
+    try {
+      return await fs.readJson(this.getPageFilename(pageId));
+    } catch (err) {
+      return null;
+    }
   }
 
   /**

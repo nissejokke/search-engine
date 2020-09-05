@@ -152,6 +152,8 @@ export class Hash {
       } else break;
     }
 
+    if (!previous) return this.insertFirst(key, buf);
+
     // write new node, points current
     await this.writeNode(node.offset, buf, current!.offset);
 
@@ -172,6 +174,23 @@ export class Hash {
     await this.writeNode(nextNodeOffset, buf, headOffset);
     // write new headoffset
     await this.writeHashEntryHeadOffset(key, nextNodeOffset);
+  }
+
+  async findIndexToInsertSortedAt(key: string, buf: Buffer): Promise<number> {
+    let i = 0;
+    for await (const { index, buffer } of this.getIterator(key, true)) {
+      if (buf <= buffer) return index;
+      i = index;
+    }
+    return i + 1;
+
+    // let node = this.head;
+    // let i = 0;
+    // while (node && val > node.data) {
+    //   node = node.next;
+    //   i++;
+    // }
+    // return i;
   }
 
   /**

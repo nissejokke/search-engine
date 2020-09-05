@@ -1,4 +1,5 @@
 import { Engine } from './engine';
+import fs from 'fs-extra';
 
 describe('Planets', () => {
   let engine: Engine;
@@ -133,27 +134,10 @@ describe('Planets', () => {
   });
 });
 
-test('Should not match', async () => {
-  let engine: Engine;
-  engine = new Engine();
-  await engine.add({
-    title: 'Petrochemicals',
-    text: `Petrochemicals (also known as petroleum distillates) are the 
-            chemical products obtained from petroleum by refining. 
-            Some chemical compounds made from petroleum are also obtained 
-            from other fossil fuels, such as coal or natural gas, 
-            or renewable sources such as maize, palm fruit or sugar cane.`,
-    url: 'https://en.wikipedia.org/wiki/Petrochemical',
-    rank: 1000000,
-  });
+describe('carl friedrich', () => {
+  beforeEach(async () => await fs.ensureDir('./.test-results-engine/carl'));
+  afterEach(async () => await fs.remove('./.test-results-engine/carl'));
 
-  const result = await engine.search('from country he');
-  expect(result).toHaveLength(0);
-});
-
-test('should get results', async () => {
-  let engine: Engine;
-  engine = new Engine();
   const pages = [
     {
       text: 'generalized by Friedrich Bessel are',
@@ -225,23 +209,28 @@ test('should get results', async () => {
       url: 'https://en.wikipedia.org/wiki/G._Waldo_Dunnington',
     },
   ];
-  for (let i = 0; i < pages.length; i++) {
-    const text = pages[i];
-    await engine.add({
-      title: text.url.replace('_', ' '),
-      text: text.text,
-      url: text.url,
-      rank: i,
-    });
-  }
 
-  const result = await engine.search('"carl friedrich"');
-  expect(result).toHaveLength(6);
-  expect(result[0].introduction).toContain('by "Carl Friedrich" Gauss in');
-  expect(result[1].introduction).toContain(
-    'mathematician "Carl Friedrich" Gauss 1777'
-  );
-  expect(result[5].introduction).toContain('"CARL FrieDricH"');
+  test('Should work', async () => {
+    let engine: Engine;
+    engine = new Engine();
+    for (let i = 0; i < pages.length; i++) {
+      const text = pages[i];
+      await engine.add({
+        title: text.url.replace('_', ' '),
+        text: text.text,
+        url: text.url,
+        rank: i + 1,
+      });
+    }
+
+    const result = await engine.search('"carl friedrich"');
+    expect(result).toHaveLength(6);
+    expect(result[0].introduction).toContain('by "Carl Friedrich" Gauss in');
+    expect(result[1].introduction).toContain(
+      'mathematician "Carl Friedrich" Gauss 1777'
+    );
+    expect(result[5].introduction).toContain('"CARL FrieDricH"');
+  });
 });
 
 describe('Rank Haber', () => {

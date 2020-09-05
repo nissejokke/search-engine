@@ -31,7 +31,7 @@ export class MemoryStorage implements Storage {
    *    }
    * }
    */
-  pages: Record<number, Page>;
+  pages: Record<number, Page | null>;
 
   /**
    * Url to page id
@@ -85,8 +85,8 @@ export class MemoryStorage implements Storage {
     };
   }
 
-  async getPage(pageId: number): Promise<Page> {
-    return this.pages[pageId];
+  async getPage(pageId: number): Promise<Page | null> {
+    return this.pages[pageId] || null;
   }
 
   async getUrlToPage(url: string): Promise<number> {

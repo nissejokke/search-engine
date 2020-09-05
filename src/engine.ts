@@ -59,6 +59,7 @@ export class Engine {
 
     // get a free seed (pageId)
     const seed = await this.storage.getSeed(rank);
+
     await this.storage.setUrlToPage(url, seed);
 
     const addedWordsForPage = new Set();

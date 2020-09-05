@@ -5,7 +5,7 @@ export interface Storage {
   addWord: (word: string, pageId: number) => Promise<void>;
 
   initPage: (pageId: number, page: Page) => Promise<void>;
-  getPage: (pageId: number) => Promise<Page>;
+  getPage: (pageId: number) => Promise<Page | null>;
 
   getUrlToPage: (url: string) => Promise<number | undefined>;
   setUrlToPage: (url: string, pageId: number) => Promise<void>;
