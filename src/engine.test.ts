@@ -259,7 +259,7 @@ describe('Rank Haber', () => {
       produce a result; it may occur once-only or be recurrent 
       or periodic.`,
       url: 'https://en.wikipedia.org/wiki/Process',
-      rank: 1,
+      rank: 10,
     });
     await engine.add({
       title: 'Haber',
@@ -267,7 +267,7 @@ describe('Rank Haber', () => {
       old German is "oat". The cereal is now in German called "Hafer".
       The process of making is ....`,
       url: 'https://en.wikipedia.org/wiki/Haber',
-      rank: 2,
+      rank: 10,
     });
     await engine.add({
       title: 'Haber process',
@@ -275,7 +275,7 @@ describe('Rank Haber', () => {
             is an artificial nitrogen fixation process and is the main 
             industrial procedure for the production of ammonia today.`,
       url: 'https://hackapedia.org/?id=4567&title=Haber',
-      rank: 3,
+      rank: 10,
     });
     await engine.add({
       title: 'Haber process',
@@ -283,7 +283,7 @@ describe('Rank Haber', () => {
             is an artificial nitrogen fixation process and is the main 
             industrial procedure for the production of ammonia today.`,
       url: 'https://en.wikipedia.org/wiki/Haber_process',
-      rank: 4,
+      rank: 10,
     });
   });
   test('Process', async () => {

@@ -104,9 +104,6 @@ export class MemoryStorage implements Storage {
     return rank;
   }
 
-  // async increaseSeed(): Promise<void> {
-  //   this.seed++;
-  // }
   async getCount(): Promise<number> {
     return this.count;
   }

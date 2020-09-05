@@ -176,23 +176,6 @@ export class Hash {
     await this.writeHashEntryHeadOffset(key, nextNodeOffset);
   }
 
-  async findIndexToInsertSortedAt(key: string, buf: Buffer): Promise<number> {
-    let i = 0;
-    for await (const { index, buffer } of this.getIterator(key, true)) {
-      if (buf <= buffer) return index;
-      i = index;
-    }
-    return i + 1;
-
-    // let node = this.head;
-    // let i = 0;
-    // while (node && val > node.data) {
-    //   node = node.next;
-    //   i++;
-    // }
-    // return i;
-  }
-
   /**
    * Appends value to linked list at last position
    * @param key
@@ -307,6 +290,20 @@ export class Hash {
           index,
         };
     }
+  }
+
+  /**
+   * Find index to insert data in to keep linked list sorted
+   * @param key
+   * @param buf
+   */
+  async findIndexToInsertSortedAt(key: string, buf: Buffer): Promise<number> {
+    let i = 0;
+    for await (const { index, buffer } of this.getIterator(key, true)) {
+      if (buf <= buffer) return index;
+      i = index;
+    }
+    return i + 1;
   }
 
   /**
