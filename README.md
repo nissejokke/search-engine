@@ -4,7 +4,7 @@ Simple full text index search engine with focus on performance.
 
 - Search single or multiple words
 - Quotes to match exact
-- Ranking on title and url
+- Page ranking and scoring on title and url
 
 ![Brightest search example](brightest-search.png)
 
@@ -17,43 +17,53 @@ engine.add({
   text:
     'Jupiter is the fifth planet from the Sun and the largest in the Solar System. It is a gas giant with a mass one-thousandth that of the Sun, but two-and-a-half times that of all the other planets in the Solar System combined. Jupiter is one of the brightest objects visible to the naked eye in the night sky, and has been known to ancient civilizations since before recorded history. It is named after the Roman god Jupiter.[18] When viewed from Earth, Jupiter can be bright enough for its reflected light to cast visible shadows,[19] and is on average the third-brightest natural object in the night sky after the Moon and Venus.',
   url: 'https://en.wikipedia.org/wiki/Jupiter',
+  rank: 100,
 });
 engine.add({
   title: 'Saturn',
   text:
     'Saturn is the sixth planet from the Sun and the second-largest in the Solar System, after Jupiter. It is a gas giant with an average radius of about nine times that of Earth.[18][19] It only has one-eighth the average density of Earth; however, with its larger volume, Saturn is over 95 times more massive.[20][21][22] Saturn is named after the Roman god of wealth and agriculture; its astronomical symbol (♄) represents the god´s sickle.',
   url: 'https://en.wikipedia.org/wiki/Saturn',
+  rank: 200,
 });
 ```
 
 ```typescript
-engine.search('brightest');
-// [
-//   {
-//     ingress: 'of the "brightest" objects visible ... the third "brightest" natural object',
-//     url: 'https://en.wikipedia.org/wiki/Jupiter'
-//   }
-// ]
+await engine.search('brightest');
+
+// result
+[
+  {
+    ingress:
+      'of the "brightest" objects visible ... the third "brightest" natural object',
+    url: 'https://en.wikipedia.org/wiki/Jupiter',
+  },
+];
 ```
 
 ```typescript
-engine.search('planet sixth');
-// [
-//   {
-//     ingress: 'is the "sixth planet" from the',
-//     url: 'https://en.wikipedia.org/wiki/Saturn'
-//   }
-// ]
+await engine.search('planet sixth');
+
+// result
+[
+  {
+    ingress: 'is the "sixth planet" from the',
+    url: 'https://en.wikipedia.org/wiki/Saturn',
+  },
+];
 ```
 
 ```typescript
-engine.search('"from the Sun" Moon');
-// [
-//   {
-//     ingress: 'fifth planet "from the Sun" and the ... after the "Moon" and Venus',
-//     url: 'https://en.wikipedia.org/wiki/Jupiter'
-//   }
-// ]
+await engine.search('"from the Sun" Moon');
+
+// result
+[
+  {
+    ingress:
+      'fifth planet "from the Sun" and the ... after the "Moon" and Venus',
+    url: 'https://en.wikipedia.org/wiki/Jupiter',
+  },
+];
 ```
 
 ## Benchmark
@@ -64,7 +74,7 @@ engine.search('"from the Sun" Moon');
 Test command: npm run demo
 
 ```typescript
-const result = engine.search('philosophy psychology');
+const result = await engine.search('philosophy psychology');
 ```
 
 Result in 3.850ms
@@ -148,4 +158,4 @@ Result in 6.177ms
 - [x] Store index as binary
   - [x] Handle collisions
 - [x] Change storage for words to linked list for easier insert based on rank
-- [ ] Ranking of each page
+- [x] Ranking of each page
