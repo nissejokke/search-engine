@@ -176,6 +176,7 @@ export class Hash {
     await this.writeHashEntryHeadOffset(key, nextNodeOffset);
   }
 
+  // might be needed later:
   /**
    * Appends value to linked list at last position
    * @param key

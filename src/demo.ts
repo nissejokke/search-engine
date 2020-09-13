@@ -88,6 +88,12 @@ const engine = new Engine({
     uniqueWords: 500000,
   }),
   stopWords,
+  scoreWeights: {
+    titleExactMatch: 10,
+    titleBegins: 5,
+    urlContains: 5,
+    titleContainsInBeginning: 1,
+  },
 });
 // const engine = new Engine({ storage: new MemoryStorage(), stopWords });
 const max = 10000;
@@ -148,7 +154,7 @@ let skipped = 0;
     }
 
     console.log('');
-    console.log(await engine.storage.getCount(), count, 'pages loaded');
+    console.log(await engine.storage.getCount(), 'pages loaded');
 
     const rl = readline.createInterface({
       input: process.stdin,

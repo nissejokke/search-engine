@@ -11,7 +11,7 @@ export interface RankWeights {
 export interface EngineProps {
   storage?: Storage;
   stopWords?: string[];
-  rankWeights?: RankWeights;
+  scoreWeights?: RankWeights;
 }
 
 /**
@@ -25,7 +25,7 @@ export class Engine {
 
   storage: Storage;
 
-  rankWeights?: RankWeights;
+  scoreWeights?: RankWeights;
 
   constructor(props?: EngineProps) {
     this.storage = props?.storage || new MemoryStorage();
@@ -33,7 +33,7 @@ export class Engine {
       dic.add(word);
       return dic;
     }, new Set<string>());
-    this.rankWeights = props?.rankWeights;
+    this.scoreWeights = props?.scoreWeights;
   }
 
   /**
@@ -135,7 +135,7 @@ export class Engine {
     );
 
     // rank on content
-    let sortedPages = await this.rankPages(wordsWithoutStopWords, pages);
+    let sortedPages = await this.scorePages(wordsWithoutStopWords, pages);
 
     // get pages and construct introduction
     return await Promise.all(
@@ -155,7 +155,10 @@ export class Engine {
    * @param words
    * @param pages
    */
-  private async rankPages(words: string[], pages: number[]): Promise<number[]> {
+  private async scorePages(
+    words: string[],
+    pages: number[]
+  ): Promise<number[]> {
     const indicesForWord = (word: string, page: Page) =>
       page.index[word.toLowerCase()];
 
@@ -207,15 +210,15 @@ export class Engine {
      */
     const getScore = async (pageId: number): Promise<number> => {
       let score = 0;
-      if (!this.rankWeights) return score;
+      if (!this.scoreWeights) return score;
       const { exact, begins, pos } = await titleEqual(pageId);
-      if (exact) score += this.rankWeights.titleExactMatch;
+      if (exact) score += this.scoreWeights.titleExactMatch;
       // 10;
-      else if (begins) score += this.rankWeights.titleBegins;
+      else if (begins) score += this.scoreWeights.titleBegins;
       //5;
-      else if (pos < 3) score += this.rankWeights.titleContainsInBeginning; //1;
+      else if (pos < 3) score += this.scoreWeights.titleContainsInBeginning; //1;
       if (urlMatch((await this.storage.getPage(pageId))!.url))
-        score += this.rankWeights.urlContains; //1;
+        score += this.scoreWeights.urlContains; //1;
       return score;
     };
 

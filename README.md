@@ -5,13 +5,44 @@ Simple full text index search engine with focus on performance.
 - Search single or multiple words
 - Quotes to match exact
 - Page ranking and scoring on title and url
+- Persistent file based storage
+- Memory storage
 
 ![Brightest search example](brightest-search.png)
 
 Example:
 
 ```typescript
-engine = new Engine();
+engine = new Engine({
+  storage: new BinaryFileStorage({
+    indexPath: '/.index',
+    wordSizeBytes: 32,
+    uniqueWords: 500000,
+  }),
+  stopWords: [
+    'a',
+    'an',
+    'am',
+    'and',
+    'be',
+    'have',
+    'i',
+    'in',
+    'is',
+    'of',
+    'on',
+    'that',
+    'the',
+    'to',
+  ],
+  scoreWeights: {
+    titleExactMatch: 10,
+    titleBegins: 5,
+    urlContains: 5,
+    titleContainsInBeginning: 1,
+  },
+});
+
 engine.add({
   title: 'Jupiter',
   text:
@@ -19,6 +50,7 @@ engine.add({
   url: 'https://en.wikipedia.org/wiki/Jupiter',
   rank: 100,
 });
+
 engine.add({
   title: 'Saturn',
   text:
@@ -65,6 +97,27 @@ await engine.search('"from the Sun" Moon');
   },
 ];
 ```
+
+## Guidelines
+
+- Rank must be unique
+  When adding pages, rank is make sure that it is unique be searching for an unused id to insert at. For example if rank=200 and a page already exists at that position, one less (199) will be used if that is free. If that is not free 198 will be used, and so on. Beware ending up at rank 0 is not allowed and an exception is thrown.
+
+## How it works
+
+A hash table where word is the key and value is a linked list consisting of page id´s. The page id is also the rank. Lower page id means better page rank.
+
+### Adding
+
+The linked list for a word is inserted at the position of the rank, keeping the list sorted. Currently the list is traversed from the head meaning it can be slow to insert words.
+
+### Searching
+
+Searching for a single word is straight forward, the linked list is traversed one item and the first x nodes is the result.
+
+When search for multiple words, each word´s linked list is traversed one node at the time. When a node with the same page id is found in all of the lists it is added to the results array, checking the list with the lowest page id each time. Since the nodes are in order of page rank, traversing stops when results array are of desired length.
+
+Each page id is optionally adjusted with a score, lowering the rank of pages with has searched word in title or in url.
 
 ## Benchmark
 
@@ -157,5 +210,6 @@ Result in 6.177ms
 - [x] Store index as files
 - [x] Store index as binary
   - [x] Handle collisions
+  - [ ] Optimize insertions - currently slow, will seek from head for every insertion
 - [x] Change storage for words to linked list for easier insert based on rank
 - [x] Ranking of each page

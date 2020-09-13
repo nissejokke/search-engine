@@ -135,9 +135,6 @@ describe('Planets', () => {
 });
 
 describe('carl friedrich', () => {
-  beforeEach(async () => await fs.ensureDir('./.test-results-engine/carl'));
-  afterEach(async () => await fs.remove('./.test-results-engine/carl'));
-
   const pages = [
     {
       text: 'generalized by Friedrich Bessel are',
@@ -237,7 +234,7 @@ describe('Rank Haber', () => {
   let engine: Engine;
   beforeEach(async () => {
     engine = new Engine({
-      rankWeights: {
+      scoreWeights: {
         titleExactMatch: 10,
         titleBegins: 5,
         titleContainsInBeginning: 1,

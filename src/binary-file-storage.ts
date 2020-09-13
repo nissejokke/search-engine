@@ -3,6 +3,10 @@ import fs from 'fs-extra';
 import path from 'path';
 import { Hash } from './hash';
 
+export interface PageMeta {
+  pageCount: number;
+}
+
 export interface BinaryFileStorageProps {
   indexPath: string;
   wordSizeBytes: number;
@@ -83,8 +87,11 @@ export class BinaryFileStorage implements Storage {
     await this.wordHash.insertAt(word, index, buf);
   }
 
+  /**
+   * Gets page count
+   */
   async getCount(): Promise<number> {
-    return 0;
+    return (await this.getMetadata()).pageCount;
   }
 
   /**
@@ -126,6 +133,8 @@ export class BinaryFileStorage implements Storage {
     const file = this.getPageFilename(pageId);
     await fs.ensureFile(file);
     await fs.writeFile(file, JSON.stringify(page), { encoding: 'utf-8' });
+    const meta = await this.getMetadata();
+    await this.setMetadata({ ...meta, pageCount: meta.pageCount + 1 });
   }
 
   /**
@@ -153,6 +162,37 @@ export class BinaryFileStorage implements Storage {
       '/',
       this.divideIntoParts(filename, 1).join('/')
     );
+  }
+
+  /**
+   * Get index metadata
+   */
+  private async getMetadata(): Promise<PageMeta> {
+    try {
+      return await fs.readJson(this.getMetadataFilename(), {
+        encoding: 'utf-8',
+      });
+    } catch (err) {
+      return { pageCount: 0 };
+    }
+  }
+
+  /**
+   * Set index metadata
+   * @param meta
+   */
+  private async setMetadata(meta: Partial<PageMeta>) {
+    return fs.writeJson(this.getMetadataFilename(), meta, {
+      encoding: 'utf-8',
+    });
+  }
+
+  /**
+   * Page file path
+   * @param pageId
+   */
+  private getMetadataFilename(): string {
+    return path.join(this.indexPath, '/page-meta');
   }
 
   /**

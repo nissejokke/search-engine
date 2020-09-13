@@ -99,9 +99,10 @@ export class MemoryStorage implements Storage {
 
   // seed
   async getSeed(rank: number): Promise<number> {
-    while (await this.getPage(rank)) rank--;
-    if (rank < 0) throw new Error(`Rank <= 0`);
-    return rank;
+    let id = rank;
+    while (await this.getPage(id)) id--;
+    if (id < 0) throw new Error(`Rank <= 0`);
+    return id;
   }
 
   async getCount(): Promise<number> {
