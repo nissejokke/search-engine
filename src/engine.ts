@@ -1,6 +1,19 @@
 import { MemoryStorage } from './memory-storage';
 import { Storage, SearchResult, Page } from './@types';
 
+export interface RankWeights {
+  titleExactMatch: number;
+  titleBegins: number;
+  titleContainsInBeginning: number;
+  urlContains: number;
+}
+
+export interface EngineProps {
+  storage?: Storage;
+  stopWords?: string[];
+  scoreWeights?: RankWeights;
+}
+
 /**
  * Search engine
  */
@@ -10,14 +23,17 @@ export class Engine {
    */
   stopWords: Set<string>;
 
-  constructor(
-    public storage: Storage = new MemoryStorage(),
-    stopWords: string[] = []
-  ) {
-    this.stopWords = stopWords.reduce((dic, word) => {
+  storage: Storage;
+
+  scoreWeights?: RankWeights;
+
+  constructor(props?: EngineProps) {
+    this.storage = props?.storage || new MemoryStorage();
+    this.stopWords = (props?.stopWords || []).reduce((dic, word) => {
       dic.add(word);
       return dic;
     }, new Set<string>());
+    this.scoreWeights = props?.scoreWeights;
   }
 
   /**
@@ -28,10 +44,12 @@ export class Engine {
     title,
     text,
     url,
+    rank,
   }: {
     title: string;
     text: string;
     url: string;
+    rank: number;
   }): Promise<void> {
     const { words } = this.toWords(title + ' ' + text);
 
@@ -39,7 +57,9 @@ export class Engine {
     if (pageId)
       throw new Error('page already in index: ' + url + ', ' + pageId);
 
-    const seed = await this.storage.getSeed();
+    // get a free seed (pageId)
+    const seed = await this.storage.getSeed(rank);
+
     await this.storage.setUrlToPage(url, seed);
 
     const addedWordsForPage = new Set();
@@ -75,7 +95,7 @@ export class Engine {
 
     // init page
     await this.storage.initPage(seed, { title, url, words, index: pageIndex });
-    await this.storage.increaseSeed();
+    // await this.storage.increaseSeed();
   }
 
   /**
@@ -99,7 +119,7 @@ export class Engine {
       const page = await this.storage.getPage(pageId);
       for (let i = 0; i < quotes.length; i += 2) {
         const quotedWords = words.slice(quotes[i], quotes[i + 1]);
-        if (await this.isAdjecentWords(quotedWords, page)) return true;
+        if (await this.isAdjecentWords(quotedWords, page!)) return true;
       }
       return false;
     };
@@ -115,12 +135,12 @@ export class Engine {
     );
 
     // rank on content
-    let sortedPages = await this.rankPages(wordsWithoutStopWords, pages);
+    let sortedPages = await this.scorePages(wordsWithoutStopWords, pages);
 
     // get pages and construct introduction
     return await Promise.all(
       sortedPages.slice(0, maxCount).map(async (pageId) => {
-        const page = await this.storage.getPage(pageId);
+        const page = (await this.storage.getPage(pageId)) as Page;
         return {
           title: page.title,
           introduction: await this.constructIntroduction(words, quotes, page),
@@ -135,7 +155,10 @@ export class Engine {
    * @param words
    * @param pages
    */
-  private async rankPages(words: string[], pages: number[]): Promise<number[]> {
+  private async scorePages(
+    words: string[],
+    pages: number[]
+  ): Promise<number[]> {
     const indicesForWord = (word: string, page: Page) =>
       page.index[word.toLowerCase()];
 
@@ -149,13 +172,13 @@ export class Engine {
       const page = await this.storage.getPage(pageId);
 
       const matches = words.filter((word, index) => {
-        const indices = indicesForWord(word, page);
+        const indices = indicesForWord(word, page!);
         if (!indices) return false;
         const equals = indices[0] === index;
         return equals;
       }).length;
 
-      const titleWords = this.toWords(page.title, true).words;
+      const titleWords = this.toWords(page!.title, true).words;
 
       return {
         exact: matches === titleWords.length,
@@ -187,11 +210,15 @@ export class Engine {
      */
     const getScore = async (pageId: number): Promise<number> => {
       let score = 0;
+      if (!this.scoreWeights) return score;
       const { exact, begins, pos } = await titleEqual(pageId);
-      if (exact) score += 10;
-      else if (begins) score += 5;
-      else if (pos < 3) score += 1;
-      if (urlMatch((await this.storage.getPage(pageId)).url)) score += 1;
+      if (exact) score += this.scoreWeights.titleExactMatch;
+      // 10;
+      else if (begins) score += this.scoreWeights.titleBegins;
+      //5;
+      else if (pos < 3) score += this.scoreWeights.titleContainsInBeginning; //1;
+      if (urlMatch((await this.storage.getPage(pageId))!.url))
+        score += this.scoreWeights.urlContains; //1;
       return score;
     };
 

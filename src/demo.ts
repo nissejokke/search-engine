@@ -81,7 +81,21 @@ const stopWords = [
 ];
 const dir = './.index';
 let count = 0;
-const engine = new Engine(new BinaryFileStorage(dir), stopWords);
+const engine = new Engine({
+  storage: new BinaryFileStorage({
+    indexPath: dir,
+    wordSizeBytes: 32,
+    uniqueWords: 500000,
+  }),
+  stopWords,
+  scoreWeights: {
+    titleExactMatch: 10,
+    titleBegins: 5,
+    urlContains: 5,
+    titleContainsInBeginning: 1,
+  },
+});
+// const engine = new Engine({ storage: new MemoryStorage(), stopWords });
 const max = 10000;
 let skipped = 0;
 
@@ -126,6 +140,7 @@ let skipped = 0;
             title: item.title.replace('Wikipedia: ', ''),
             text: item.abstract,
             url: item.url,
+            rank: count,
           });
         } catch (err) {
           console.error(`Failed to add page to index: ${item.url}: ${err}`);
@@ -139,7 +154,7 @@ let skipped = 0;
     }
 
     console.log('');
-    console.log(await engine.storage.getSeed(), 'pages loaded');
+    console.log(await engine.storage.getCount(), 'pages loaded');
 
     const rl = readline.createInterface({
       input: process.stdin,

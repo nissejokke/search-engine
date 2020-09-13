@@ -3,6 +3,16 @@ import fs from 'fs-extra';
 import path from 'path';
 import { Hash } from './hash';
 
+export interface PageMeta {
+  pageCount: number;
+}
+
+export interface BinaryFileStorageProps {
+  indexPath: string;
+  wordSizeBytes: number;
+  uniqueWords: number;
+}
+
 /**
  * Binary file storage.
  * Stores:
@@ -16,11 +26,14 @@ export class BinaryFileStorage implements Storage {
    */
   private wordHash: Hash;
 
-  constructor(public indexPath: string) {
+  private indexPath: string;
+
+  constructor(public props: BinaryFileStorageProps) {
+    this.indexPath = props.indexPath;
     this.wordHash = new Hash({
       filePath: path.join(this.indexPath, '/word-dic'),
-      keySize: 32,
-      hashRows: 500000,
+      keySize: this.props.uniqueWords,
+      hashRows: this.props.uniqueWords,
       nodeSize: 4,
     });
   }
@@ -66,11 +79,19 @@ export class BinaryFileStorage implements Storage {
    * @param pageId
    */
   async addWord(word: string, pageId: number): Promise<void> {
-    for await (const write of this.wordHash.appendIterator(word)) {
-      const buf = Buffer.from(this.toBEInt32(pageId));
-      await write(buf);
-      break;
-    }
+    if (await this.getPage(pageId))
+      throw new Error(`pageId ${pageId} already taken`);
+
+    const buf = Buffer.from(this.toBEInt32(pageId));
+    const index = await this.wordHash.findIndexToInsertSortedAt(word, buf);
+    await this.wordHash.insertAt(word, index, buf);
+  }
+
+  /**
+   * Gets page count
+   */
+  async getCount(): Promise<number> {
+    return (await this.getMetadata()).pageCount;
   }
 
   /**
@@ -112,14 +133,20 @@ export class BinaryFileStorage implements Storage {
     const file = this.getPageFilename(pageId);
     await fs.ensureFile(file);
     await fs.writeFile(file, JSON.stringify(page), { encoding: 'utf-8' });
+    const meta = await this.getMetadata();
+    await this.setMetadata({ ...meta, pageCount: meta.pageCount + 1 });
   }
 
   /**
    * Get page
    * @param pageId
    */
-  async getPage(pageId: number): Promise<Page> {
-    return fs.readJson(this.getPageFilename(pageId));
+  async getPage(pageId: number): Promise<Page | null> {
+    try {
+      return await fs.readJson(this.getPageFilename(pageId));
+    } catch (err) {
+      return null;
+    }
   }
 
   /**
@@ -135,6 +162,37 @@ export class BinaryFileStorage implements Storage {
       '/',
       this.divideIntoParts(filename, 1).join('/')
     );
+  }
+
+  /**
+   * Get index metadata
+   */
+  private async getMetadata(): Promise<PageMeta> {
+    try {
+      return await fs.readJson(this.getMetadataFilename(), {
+        encoding: 'utf-8',
+      });
+    } catch (err) {
+      return { pageCount: 0 };
+    }
+  }
+
+  /**
+   * Set index metadata
+   * @param meta
+   */
+  private async setMetadata(meta: Partial<PageMeta>) {
+    return fs.writeJson(this.getMetadataFilename(), meta, {
+      encoding: 'utf-8',
+    });
+  }
+
+  /**
+   * Page file path
+   * @param pageId
+   */
+  private getMetadataFilename(): string {
+    return path.join(this.indexPath, '/page-meta');
   }
 
   /**
@@ -179,31 +237,9 @@ export class BinaryFileStorage implements Storage {
   /**
    * Word seed
    */
-  async getSeed(): Promise<number> {
-    try {
-      return await fs.readJson(this.getSeedFilename());
-    } catch (err) {
-      return 1;
-    }
-  }
-
-  /**
-   * Increase word seed
-   */
-  async increaseSeed(): Promise<void> {
-    let seed = await this.getSeed();
-    seed++;
-    await fs.ensureFile(this.getSeedFilename());
-    await fs.writeFile(this.getSeedFilename(), JSON.stringify(seed), {
-      encoding: 'utf-8',
-    });
-  }
-
-  /**
-   * Get seed filepath
-   */
-  private getSeedFilename(): string {
-    const filename = 'seed';
-    return path.join(this.indexPath, filename);
+  async getSeed(rank: number): Promise<number> {
+    while (await this.getPage(rank)) rank--;
+    if (rank < 0) throw new Error(`Rank <= 0`);
+    return rank;
   }
 }
