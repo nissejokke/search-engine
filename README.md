@@ -13,7 +13,7 @@ Simple full text index search engine with focus on performance.
 Example:
 
 ```typescript
-engine = new Engine({
+const engine = new Engine({
   storage: new BinaryFileStorage({
     indexPath: '/.index',
     wordSizeBytes: 32,
